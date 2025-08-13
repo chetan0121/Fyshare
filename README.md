@@ -80,13 +80,13 @@ Use these steps to host or share files directly from your Android device:
 
 ## Features
 
-- **Offline LAN sharing** — Works without internet; share files directly over your local network (Hotspot / WiFi).  
-- **Randomized security** — Random port selection, unique username, and OTP per session.  
-- **Session cookies** — Keeps users logged in until session expires (cookies only store session tokens; no tracking) or manually logged-out.  
-- **Max user limit** — Restrict concurrent users (default 1, configurable in `config.json`).  
-- **Styled web UI** — Clean HTML/CSS/JS interface for browsing and downloading files.  
-- **Rate limiting & protection** — Tracks failed attempts per IP, applies cooldowns and temporary blocks to prevent abuse.  
-- **Inactivity shutdown** — Automatically stops the server after a configurable idle timeout.  
-- **Easy customization** — Modify HTML and CSS in `templates/` and `static/` for a personalized look.
+- **Offline LAN sharing:** Works without internet; share files directly over your local network (Hotspot / WiFi).  
+- **Randomized security:** Random port selection, unique username, and OTP per session.  
+- **Session cookies:** Keeps users logged in until session expires (cookies only store session tokens; no tracking) or manually logged-out.  
+- **Max user limit:** Restrict concurrent users (default 1, configurable in `config.json`).  
+- **Styled web UI:** Clean HTML/CSS/JS interface for browsing and downloading files.  
+- **Rate limiting & protection:** Tracks failed attempts per IP, applies cooldowns and temporary blocks to prevent abuse.  
+- **Inactivity shutdown:** Automatically stops the server after a configurable idle timeout.  
+- **Easy customization:** Modify HTML and CSS in `templates/` and `static/` for a personalized look.
 
 ---
