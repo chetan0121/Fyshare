@@ -1,0 +1,13 @@
+{
+  "max_users": 1,
+  "idle_timeout_minutes": 5,
+  "refresh_time_seconds": 2,
+  "max_attempts_per_ip": 5,
+  "cooldown_seconds": 60,
+  "max_total_attempts_per_ip": 15,
+  "block_time_minutes": 5,
+  "cleanup_timeout_minutes": 15,
+  "update_credentials_after_attempts": 20,
+  "root_directory": "C:/Users",
+  "default_cache_time_out": "1800"
+}
