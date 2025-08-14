@@ -19,8 +19,8 @@ Use these steps to host or share directories from your computer:
 2. **Get FyShare**  
    Clone this repository or download it as a ZIP file and extract it:  
    ```bash
-   git clone https://github.com/your-username/your-repo.git
-   cd your-repo
+   git clone https://github.com/chetan0121/Fyshare.git
+   cd Fyshare--main
    ```
 3. **Run the server**  
    ```bash
