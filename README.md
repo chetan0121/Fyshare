@@ -20,7 +20,7 @@ Use these steps to host or share directories from your computer:
    Clone this repository or download it as a ZIP file and extract it:  
    ```bash
    git clone https://github.com/chetan0121/Fyshare.git
-   cd Fyshare--main
+   cd Fyshare
    ```
 3. **Run the server**  
    ```bash
