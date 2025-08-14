@@ -227,6 +227,7 @@ a {
     gap: 6px;
     height: 38px;
     transition: all 0.2s;
+    white-space: nowrap;
 }
     .download-btn:hover {
         background: #219a52;
@@ -341,7 +342,6 @@ a {
         height: auto;
         padding: 6px 10px;
         font-size: 0.8em;
-        white-space: nowrap;
     }
 
     #th-name { 
@@ -356,3 +356,4 @@ a {
         width: 24px;
     }
 }
+
