@@ -5,18 +5,17 @@ const anim_duration = 400; //In ms, Match CSS animation duration of theme-icon
 
 const savedTheme = sessionStorage.getItem('theme'); // Get theme preference if saved
 
-if (savedTheme === 'dark') {
-    changeTheme(true);
-} else if(savedTheme === 'light') {
-    changeTheme(false);
-} else if(window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    changeTheme(true);
+if (savedTheme) {
+    updateTheme(savedTheme === 'dark');
+} else {
+    updateTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
 }
+
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
-    changeTheme(event.matches);
+    updateTheme(event.matches);
 });
 
-function changeTheme(isDark){
+function updateTheme(isDark){
     body.classList.toggle('dark-theme', isDark);
     sessionStorage.setItem('theme', isDark ? 'dark' : 'light');
     themeIcon.textContent = isDark ? '🌙' : '☀️';
@@ -34,7 +33,7 @@ themeToggle.addEventListener('click', () => {
     animateIcon();
     setTimeout(() => {
         const isDark = body.classList.contains('dark-theme');
-        changeTheme(isDark);
+        updateTheme(isDark);
     }, anim_duration/2);
 });
 
