@@ -1,7 +1,6 @@
 :root {
     --primary: #3498db;
     --secondary: #2c3e50;
-    --success: #27ae60;
     --text: #333;
     --text-light: #7f8c8d;
     --bg: #f5f6fa;
@@ -13,7 +12,6 @@
 body.dark-theme {
     --primary: #2196f3;
     --secondary: #1e272e;
-    --success: #27ae60;
     --text: #e0e0e0;
     --text-light: #aaaaaa;
     --bg: #121212;
@@ -217,7 +215,7 @@ a {
     }
 
 .download-btn {
-    background: var(--success);
+    background: #27ae60;
     color: white !important;
     padding: 0px 16px;
     border-radius: 6px;
@@ -257,8 +255,9 @@ a {
 
 .theme-icon.theme-animate {
     display: inline-block;
-    animation: theme-anim 0.4s ease-in-out;
+    animation: theme-anim 400ms ease-in-out;
     overflow: hidden;
+    will-change: transform, opacity;
 }
 
 @keyframes theme-anim {
