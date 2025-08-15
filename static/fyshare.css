@@ -20,7 +20,7 @@ body.dark-theme {
 }
 
 body {
-    font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: 'Segoe UI', -apple-system, Roboto, Ubuntu, sans-serif;
     background: var(--bg);
     margin: 0;
     padding: 20px;
