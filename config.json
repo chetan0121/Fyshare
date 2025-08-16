@@ -1,4 +1,5 @@
 {
+  "root_directory": "%DEFAULT%",
   "max_users": 1,
   "idle_timeout_minutes": 5,
   "refresh_time_seconds": 2,
@@ -8,7 +9,6 @@
   "block_time_minutes": 5,
   "cleanup_timeout_minutes": 15,
   "update_credentials_after_attempts": 20,
-  "root_directory": "%DEFAULT%",
   "default_cache_time_out_seconds": "1800"
 }
 
