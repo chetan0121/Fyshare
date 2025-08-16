@@ -38,7 +38,7 @@ CONFIG = {
     "block_time_minutes": int(config["block_time_minutes"]),    # IP Blocked if exceed max_total_attempts
     "cleanup_timeout": int(config["cleanup_timeout_minutes"]),  # Clean up old attempts, by timeout in minutes
     "update_credentials_after_attempts": int(config["update_credentials_after_attempts"]),
-    "cache_time_out": float(config["default_cache_time_out"]) # Cache for static files (Webpage, html, css)
+    "cache_time_out_seconds": float(config["default_cache_time_out_seconds"]) # Cache for static files (Webpage, html, css)
 }
 
 # Global variables
@@ -82,7 +82,7 @@ class SessionManager:
         with self.lock:
             return self.sessions.get(token)
 
-    def clean_expired_sessions(self):   
+    def clean_expired_sessions(self):
         with self.lock:
             current_time = time.time()
             expired = [t for t, s in self.sessions.items() if current_time > s['expiry']]
@@ -141,7 +141,7 @@ class SessionManager:
 
 SESSION_MANAGER = SessionManager()
 
-def checkConfig():
+def checkConfig():  # To validate config.json 
     if CONFIG['max_users'] <= 0:
         return False
     if CONFIG['idle_timeout_minutes'] <= 1:
@@ -155,17 +155,22 @@ def checkConfig():
     if CONFIG['cooldown_seconds'] <= 1 or not CONFIG['cooldown_seconds'] < CONFIG['block_time_minutes']*60 or CONFIG['block_time_minutes'] > CONFIG['cleanup_timeout']:
         print("\nError CONFIG : Bad time config.")
         return False
-    if CONFIG['update_credentials_after_attempts'] < 5 or CONFIG['cache_time_out'] < 0:
+    if CONFIG['update_credentials_after_attempts'] < 5 or CONFIG['cache_time_out_seconds'] < 0:
         return False
 
     return True
 
 def generate_username():
-    char_length = random.randint(4, 5)
-    digit_length = random.randint(3, 5)
-    chars = ''.join(random.choices(string.ascii_lowercase, k=char_length))
-    digits = ''.join(secrets.choice('0123456789') for _ in range(digit_length))
-    return chars + digits
+    # pick 4–5 letters
+    chars = ''.join(secrets.choice(string.ascii_lowercase) for _ in range(secrets.choice([4, 5])))
+
+    # pick 3–4 digits
+    digits = ''.join(secrets.choice(string.digits) for _ in range(secrets.choice([3, 4])))
+
+    return chars + digits   # return generated letters and digits as a single string
+
+def generate_otp(length=6):
+    return ''.join(secrets.choice(string.digits) for _ in range(length))
 
 def generate_session_token():
     return secrets.token_hex(32)
@@ -183,7 +188,7 @@ def update_credentials(message = "\n\n ⚠️  Warning: Only run this on your pr
     with credentials_lock:
         local_ip = get_local_ip()
         USERNAME = generate_username()
-        FileHandler.current_otp = str(secrets.randbelow(900000) + 100000)
+        FileHandler.current_otp = generate_otp()
         
         print(f"\n{str(message)}")
         print("---------------------------------------------")
@@ -244,7 +249,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             if favicon_path.exists():
                 with favicon_path.open('rb') as f:
                     self.send_response(200)
-                    self.send_security_headers(cache_time=CONFIG['cache_time_out'])
+                    self.send_security_headers(cache_time=CONFIG['cache_time_out_seconds'])
                     self.send_header('Content-Type', 'image/x-icon')
                     self.end_headers()
                     self.wfile.write(f.read())
@@ -287,7 +292,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
 
                 file_size = file_path.stat().st_size
                 self.send_response(200)
-                self.send_security_headers(cache_time=CONFIG['cache_time_out'])
+                self.send_security_headers(cache_time=CONFIG['cache_time_out_seconds'])
                 self.send_header('Content-Type', content_type)
                 self.send_header('Content-Length', str(file_size))
                 self.end_headers()
@@ -312,7 +317,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                 try:
                     file_size = file_path.stat().st_size
                     self.send_response(200)
-                    self.send_security_headers(cache_time=CONFIG['cache_time_out'])
+                    self.send_security_headers(cache_time=CONFIG['cache_time_out_seconds'])
                     self.send_header('Content-Type', 'text/html')
                     self.send_header('Content-Length', str(file_size))
                     self.end_headers()
@@ -359,7 +364,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if not self.validate_credentials(submitted_username, submitted_otp, timeout_seconds):
-            self.send_login_page(message="Invalid credentials or session duration.")
+            self.send_login_page(message="Invalid credentials.")
             return
 
         if any(s['ip'] == client_ip for s in SESSION_MANAGER.sessions.values()):
@@ -399,6 +404,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
     def check_authentication(self):
         session_token = self.get_session_token()
         session_data = SESSION_MANAGER.get_session(session_token)
+
         if not session_token or not session_data:
             return False
         if session_data['ip'] != self.client_address[0]:
@@ -561,11 +567,12 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     if not checkConfig():
-        print("\n- Config error!\n")
+        print("\n- Error: Invalid config!\n")
         exit(1)
 
-    FileHandler.current_otp = str(secrets.randbelow(900000) + 100000)
-    USERNAME = generate_username()
+    # Default OS Root directory detection
+    if CONFIG["root_directory"] == "%DEFAULT%":
+        CONFIG["root_directory"] = os.path.expanduser("~")
 
     # Path selection by User
     print("\nSelect path:")
@@ -593,31 +600,26 @@ if __name__ == "__main__":
         print(f"\nError: No read permissions for {ROOT_DIR}\n")
         exit(1)
 
+    # Load template files
     try:
         with (TEMPLATES_DIR / 'login.html').open('r', encoding="utf-8") as f:
             LOGIN_TEMPLATE = f.read()
         with (TEMPLATES_DIR / 'index.html').open('r', encoding="utf-8") as f:
             FILE_MANAGER_TEMPLATE = f.read()
     except FileNotFoundError as e:
-        print(f"\nError Template file not found: {e}\n")
+        print(f"\nError Template files not found: {e}\n")
         exit(1)
-
-    favicon_path = STATIC_DIR / 'favicon.ico'
-    if not favicon_path.exists():
-        with favicon_path.open('wb') as f:
-            f.write(b'')
-
 
     # Checking if port available 
     Handler = FileHandler
     try:
         server = socketserver.ThreadingTCPServer(("", PORT), Handler)
     except OSError:
-        print("\nError: Port generation failed, try again.")
+        print("\nError: Port selection failed, try again.")
         exit(1)
 
-    update_credentials()
-    print("- Follow instructions of the ReadMe.md for secure File-Sharing.\n")
+    update_credentials() # Generate new credentials
+    print("- Follow instructions of ReadMe.md for secure File-Sharing.\n")
 
     server.timeout = CONFIG["refresh_time_seconds"]
 
@@ -631,7 +633,7 @@ if __name__ == "__main__":
                 LAST_UPDATED_CRED = current_time
             elif current_time - LAST_UPDATED_CRED > CONFIG['cleanup_timeout']*60:
                 LAST_UPDATED_CRED = current_time
-                update_credentials(" ⏱️  Old Credential expired: ")
+                update_credentials(" ⏱️  Old Credentials expired: ")
 
             # Handle inactivity timeout
             if not SESSION_MANAGER.sessions and INACTIVITY_START is None:
