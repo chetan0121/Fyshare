@@ -11,6 +11,7 @@ if (savedTheme) {
     updateTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
 }
 
+// Change the UI theme if system theme changed
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
     updateTheme(event.matches);
 });
@@ -35,6 +36,7 @@ themeToggle.addEventListener('click', () => {
         const isDark = body.classList.contains('dark-theme');
         updateTheme(isDark);
     }, anim_duration/2);
+    sessionStorage.setItem('theme')
 });
 
 
