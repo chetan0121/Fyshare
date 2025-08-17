@@ -149,10 +149,10 @@ def checkConfig():  # To validate config.json
     if CONFIG['refresh_time_seconds'] <= 0 or CONFIG['refresh_time_seconds'] > 600:
         print("\nError CONFIG : Invalid refresh time.")
         return False
-    if not CONFIG['max_attempts_per_ip'] < CONFIG['max_total_attempts_per_ip'] or CONFIG['max_attempts_per_ip'] <= 1:
+    if CONFIG['max_attempts_per_ip'] >= CONFIG['max_total_attempts_per_ip'] or CONFIG['max_attempts_per_ip'] <= 1:
         print("\nError CONFIG : Bad attempt config.")
         return False
-    if CONFIG['cooldown_seconds'] <= 1 or not CONFIG['cooldown_seconds'] < CONFIG['block_time_minutes']*60 or CONFIG['block_time_minutes'] > CONFIG['cleanup_timeout']:
+    if CONFIG['cooldown_seconds'] <= 1 or CONFIG['cooldown_seconds'] >= CONFIG['block_time_minutes']*60 or CONFIG['block_time_minutes'] > CONFIG['cleanup_timeout']:
         print("\nError CONFIG : Bad time config.")
         return False
     if CONFIG['update_credentials_after_attempts'] < 5 or CONFIG['cache_time_out_seconds'] < 0:
@@ -192,8 +192,8 @@ def update_credentials(message = "\n\n ⚠️  Warning: Only run this on your pr
         
         print(f"\n{str(message)}")
         print("---------------------------------------------")
-        print(f"\n📍 Serving \"{ROOT_DIR}\" at:")
-        print(f"🌐 Access  : http://{local_ip}:{PORT}  <- PORT")
+        print(f"\n📂 Serving directory: \"{ROOT_DIR}\"")
+        print(f"🚀 Open in browser: http://{local_ip}:{PORT}")
 
         print(f"\n🔐 Credentials:")
         print(f"   👤 Username  : {USERNAME}")
