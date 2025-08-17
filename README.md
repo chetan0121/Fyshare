@@ -28,10 +28,13 @@ Use these steps to host or share directories from your computer:
    ```
 4. **Choose the directory to share:**  
    Enter the path you want to host (or set the default path in `config.json`, e.g., `C:/Users`).  
+
 5. **Share the access link:**  
    FyShare will display a URL in terminal. Open it on the receiver’s device (phone, another PC, etc.) in a browser.  
+
 6. **Log in:**  
    Enter the Username and OTP shown in your terminal.  
+
 7. **Start sharing:**  
    Browse and download files through the clean, styled web interface.
 
@@ -42,6 +45,7 @@ Use these steps to host or share files directly from your Android device:
 
 1. **Install Termux:**  
    Download Termux from Play Store or F-Droid.  
+
 2. **Install Python in Termux:**  
    ```bash
    pkg update -y && pkg upgrade -y && pkg install -y python
@@ -51,8 +55,10 @@ Use these steps to host or share files directly from your Android device:
    termux-setup-storage
    ```
    Allow permission when prompted.  
+
 4. **Get FyShare:**  
    Download this repository as a ZIP file and extract it in a location accessible to Termux (e.g. /storage/emulated/0/Download).  
+
 5. **Run the server:**  
    Navigate to the extracted folder in Termux and run:  
    ```bash
@@ -60,10 +66,13 @@ Use these steps to host or share files directly from your Android device:
    ```
 6. **Choose the directory to share:**  
    Enter the path to host (or set the default in `config.json`, e.g., `/storage/emulated/0`).  
+
 7. **Share the access link:**  
    Use the displayed URL on the receiver’s device in a browser.  
+
 8. **Log in:**  
    Enter the provided Username and OTP.  
+   
 9. **Start sharing:**  
    Browse and download files over your local network.
 
