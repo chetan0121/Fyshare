@@ -83,6 +83,7 @@ Use these steps to host or share files directly from your Android device:
 - Run only on **trusted networks** (with password protected hotspot); avoid running over public Wi-Fi.  
 - Keep your credentials private to prevent unauthorized access.
 - You can stop the server manually with **Ctrl+C** in the terminal.
+- You can change settings such as **number of users**, the default **root_directory** path, **Server refresh time** and other configurations in the `config.json` file.
 
 
 ## Features
