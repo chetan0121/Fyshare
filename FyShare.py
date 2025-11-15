@@ -1,9 +1,19 @@
+# ╔═══════════════════════════════════════════════════════════╗
+# ║                       F Y S H A R E                       ║
+# ╠═══════════════════════════════════════════════════════════╣
+# ║ GitHub    : https://github.com/chetan0121/Fyshare         ║
+# ║ Author    : Chetan                                        ║
+# ║ Version   : 2.3                                           ║
+# ║                                                           ║
+# ║ FyShare is a lightweight Python-based local file-sharing  ║
+# ║ server with a clean browser UI. It allows secure transfer ║
+# ║ over your LAN (Wi-Fi) using one-time credentials.         ║
+# ╚═══════════════════════════════════════════════════════════╝
+
 # Standard library imports
 import http.server, socketserver
 import os
-import posixpath
 import socket
-import random
 import time
 import threading
 import re
@@ -24,7 +34,7 @@ try:
     with CONFIG_PATH.open("r") as f:
         config = json.load(f)
 except json.JSONDecodeError:
-    print("\nError: Invalid JSON in config.json!\n")
+    print("\nError: Invalid JSON in config.json\n")
     exit(1)
 
 CONFIG = {
@@ -41,14 +51,13 @@ CONFIG = {
     "cache_time_out_seconds": float(config["default_cache_time_out_seconds"]) # Cache for static files (Webpage, html, css)
 }
 
-# Global variables
+# === Global variables and CONSTANTS ===
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
-USERNAME = None  # Initialized later
-PORT = random.randint(1500, 9500)
+
 GLOBAL_TOTAL_ATTEMPTS = 0
-INACTIVITY_START = None
 LAST_UPDATED_CRED = None
+INACTIVITY_START = None
 
 # Global thread_lock for credential related updates
 credentials_lock = threading.Lock()
@@ -141,24 +150,30 @@ class SessionManager:
 
 SESSION_MANAGER = SessionManager()
 
-def checkConfig():  # To validate config.json 
-    if CONFIG['max_users'] <= 0:
-        return False
-    if CONFIG['idle_timeout_minutes'] <= 1:
-        return False
-    if CONFIG['refresh_time_seconds'] <= 0 or CONFIG['refresh_time_seconds'] > 600:
-        print("\nError CONFIG : Invalid refresh time.")
-        return False
-    if CONFIG['max_attempts_per_ip'] >= CONFIG['max_total_attempts_per_ip'] or CONFIG['max_attempts_per_ip'] <= 1:
-        print("\nError CONFIG : Bad attempt config.")
-        return False
-    if CONFIG['cooldown_seconds'] <= 1 or CONFIG['cooldown_seconds'] >= CONFIG['block_time_minutes']*60 or CONFIG['block_time_minutes'] > CONFIG['cleanup_timeout']:
-        print("\nError CONFIG : Bad time config.")
-        return False
-    if CONFIG['update_credentials_after_attempts'] < 5 or CONFIG['cache_time_out_seconds'] < 0:
-        return False
+# Custom Exception (Inherited Exception class)
+class ConfigError(Exception):
+    pass
 
-    return True
+def checkConfig():
+    if CONFIG['max_users'] <= 0:
+        raise ConfigError("Max_users must be more than 0")
+
+    if CONFIG['idle_timeout_minutes'] <= 1:
+        raise ConfigError("Idle_timeout_minutes must be more than 1")
+
+    if CONFIG['refresh_time_seconds'] <= 0 or CONFIG['refresh_time_seconds'] > 600:
+        raise ConfigError("Refresh_time_seconds must be between 1 and 600")
+
+    if CONFIG['max_attempts_per_ip'] >= CONFIG['max_total_attempts_per_ip'] or CONFIG['max_attempts_per_ip'] <= 1:
+        raise ConfigError("Invalid attempt limits configuration")
+
+    if CONFIG['cooldown_seconds'] <= 1 \
+      or CONFIG['cooldown_seconds'] >= CONFIG['block_time_minutes']*60 \
+      or CONFIG['block_time_minutes'] > CONFIG['cleanup_timeout']:
+        raise ConfigError("Bad timing configuration")
+
+    if CONFIG['update_credentials_after_attempts'] < 5 or CONFIG['cache_time_out_seconds'] < 0:
+        raise ConfigError("Invalid cache or credential timeout settings")
 
 def generate_username():
     # pick 4–5 letters
@@ -167,30 +182,33 @@ def generate_username():
     # pick 3–4 digits
     digits = ''.join(secrets.choice(string.digits) for _ in range(secrets.choice([3, 4])))
 
-    return chars + digits   # return generated letters and digits as a single string
+    # return generated letters + digits as a single string
+    return chars + digits   
 
 def generate_otp(length=6):
     return ''.join(secrets.choice(string.digits) for _ in range(length))
 
-def generate_session_token():
-    return secrets.token_hex(32)
+def get_local_ip() -> str:
+    # Connect to a public DNS server to discover our outgoing interface
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as socket_conn:
+        socket_conn.connect(("8.8.8.8", 80))
+        local_ip = socket_conn.getsockname()[0]
+        
+        # Verify it's not a localhost
+        if not local_ip.startswith("127."):
+            return local_ip
+    
+    # Bind to all available network interfaces (for LAN)
+    return "0.0.0.0"
 
-def get_local_ip():
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
-            return s.getsockname()[0]
-    except Exception:
-        return "127.0.0.1"  # Fallback to local
-
-def update_credentials(message = "\n\n ⚠️  Warning: Only run this on your private networks."):
+def update_credentials(message):
     global USERNAME, GLOBAL_TOTAL_ATTEMPTS
     with credentials_lock:
         local_ip = get_local_ip()
         USERNAME = generate_username()
         FileHandler.current_otp = generate_otp()
         
-        print(f"\n{str(message)}")
+        print(f"\n{message}")
         print("---------------------------------------------")
         print(f"\n📂 Serving directory: \"{ROOT_DIR}\"")
         print(f"🚀 Open in browser: http://{local_ip}:{PORT}")
@@ -209,10 +227,10 @@ def update_credentials(message = "\n\n ⚠️  Warning: Only run this on your pr
 
 
 class FileHandler(http.server.SimpleHTTPRequestHandler):
-    current_otp = str("") # Empty string, not None
+    current_otp = str() # Empty string
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=CONFIG["root_directory"], **kwargs)
+        super().__init__(*args, directory=ROOT_DIR, **kwargs)
 
     def get_session_token(self):
         cookies = self.headers.get('Cookie', '')
@@ -377,7 +395,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
 
         with credentials_lock:
             if submitted_username == USERNAME and submitted_otp == self.current_otp:
-                session_token = generate_session_token()
+                session_token = secrets.token_hex(32)
                 SESSION_MANAGER.add_session(session_token, client_ip, current_time + timeout_seconds)
                 max_age = int(SESSION_MANAGER.get_session(session_token)['expiry'] - current_time)
 
@@ -385,7 +403,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_response(302)
                     self.send_security_headers()
                     self.send_header('Location', self.path)
-                    self.send_header('Set-Cookie', f'session_token={session_token}; Path=/; HttpOnly; Max-Age={max_age+60}; SameSite=Strict')
+                    self.send_header('Set-Cookie', f'session_token={session_token}; Path=/; HttpOnly; Max-Age={max_age}; SameSite=Strict')
                     self.end_headers()
                 else:
                     self.send_login_page(message="Session expired. Please log in again.")
@@ -394,6 +412,8 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                 global GLOBAL_TOTAL_ATTEMPTS
                 GLOBAL_TOTAL_ATTEMPTS += 1
                 if GLOBAL_TOTAL_ATTEMPTS % CONFIG['update_credentials_after_attempts'] == 0:
+                    global LAST_UPDATED_CRED
+                    LAST_UPDATED_CRED = None
                     update_credentials("⚠️ Too many failed attempts on server")
 
                 self.send_login_page(message="Invalid username or OTP.")
@@ -435,7 +455,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
     def translate_path(self, path):
         path = super().translate_path(path)
         real_path = Path(path).resolve()
-        if not str(real_path).startswith(str(Path(CONFIG["root_directory"]).resolve())):
+        if not str(real_path).startswith(str(Path(ROOT_DIR).resolve())):
             self.send_error(403, "Access denied")
             return ""
         
@@ -457,7 +477,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             return None
 
         file_list.sort(key=lambda a: (not a.is_dir(), a.name.lower()))
-        displaypath = os.path.relpath(path, CONFIG["root_directory"]).strip('/.') or '.'
+        displaypath = os.path.relpath(path, ROOT_DIR).strip('/.') or '.'
 
         try:
             response = self.generate_html(file_list, displaypath)
@@ -492,11 +512,13 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                     </td>
                     <td class="size">-</td>
                     <td></td>
-                </tr>"""
+                </tr>
+            """
             
         for entry in file_list:
             if entry.name.startswith('.'):
                 continue
+
             try:
                 is_dir = entry.is_dir()
                 display_name = escape(entry.name)
@@ -521,15 +543,24 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             
         return template.replace('{{breadcrumbs}}', breadcrumbs).replace('{{table_rows}}', table_rows)
 
+    def join_posix(self, a, b):
+        a = (a or "").rstrip('/')
+        b = (b or "").lstrip('/')
+        if not a:
+            return b
+        return f"{a}/{b}"
+
     def generate_breadcrumbs(self, path):
         path = path.replace('\\', '/').strip('/. ')
         parts = path.split('/')
         breadcrumbs = ['<a href="/">🏠 Home</a>']
-        current_path = ''
+        current_path = ""
+
         for part in parts:
             if not part or part == '.':
                 continue
-            current_path = posixpath.join(current_path, part)
+
+            current_path = self.join_posix(current_path, part)
             breadcrumbs.append(
                 f'<span class="breadcrumb-sep">/</span>'
                 f'<a href="/{quote(current_path)}">{escape(part)}</a>'
@@ -566,41 +597,47 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             return "N/A"
 
 if __name__ == "__main__":
-    if not checkConfig():
-        print("\n- Error: Invalid config!\n")
+    # Verify configuration settings
+    try:
+        checkConfig()
+    except ConfigError as e:
+        print(f"\nError[Config]: {e}")
+        print("\n- Stopped initializing server.")
         exit(1)
 
     # Default OS Root directory detection
     if CONFIG["root_directory"] == "%DEFAULT%":
         CONFIG["root_directory"] = os.path.expanduser("~")
 
+    # Define Root directory as selected
+    ROOT_DIR = Path(CONFIG["root_directory"])
+
     # Path selection by User
-    print("\nSelect path:")
-    print(f"1. Default ({CONFIG["root_directory"]})")
-    print("2. Custom path")
+    print("\nSelect path to host:")
+    print(f"1. Default ({ROOT_DIR})")
+    print( "2. Custom path")
     opt = int(input("\nEnter option => "))
     if opt == 2:
-        CONFIG["root_directory"] = str(input("\nEnter path: "))
+        ROOT_DIR = Path(input("\nEnter path: "))
     elif opt != 1:
-        print("\nInvalid option!\n")
+        print("\n- Invalid option!\n")
         exit(1)
-
-    ROOT_DIR = Path(CONFIG["root_directory"])
     
+    # Verify all paths
     if not ROOT_DIR.exists():
-        print(f"\nError: Root directory {ROOT_DIR} not found!\n")
+        print(f"\nError: Root directory {ROOT_DIR} not found!")
         exit(1)
     if not TEMPLATES_DIR.exists():
-        print(f"\nError: Templates directory {TEMPLATES_DIR} not found!\n")
+        print(f"\nError: Templates directory {TEMPLATES_DIR} not found!")
         exit(1)
     if not STATIC_DIR.exists():
-        print(f"\nError: Static directory {STATIC_DIR} not found!\n")
+        print(f"\nError: Static directory {STATIC_DIR} not found!")
         exit(1)
     if not os.access(ROOT_DIR, os.R_OK):
-        print(f"\nError: No read permissions for {ROOT_DIR}\n")
+        print(f"\nError: No read permissions for {ROOT_DIR}")
         exit(1)
 
-    # Load template files
+    # Verify and load template files
     try:
         with (TEMPLATES_DIR / 'login.html').open('r', encoding="utf-8") as f:
             LOGIN_TEMPLATE = f.read()
@@ -610,28 +647,34 @@ if __name__ == "__main__":
         print(f"\nError Template files not found: {e}\n")
         exit(1)
 
-    # Checking if port available 
-    Handler = FileHandler
+    # Generate OTP
+    PORT = secrets.choice(range(1500, 9500))
+
+    # Initialize the server and check if randomly selected port is available
     try:
-        server = socketserver.ThreadingTCPServer(("", PORT), Handler)
+        server = socketserver.ThreadingTCPServer(("", PORT), FileHandler)
+        server.timeout = CONFIG["refresh_time_seconds"]
     except OSError:
-        print("\nError: Port selection failed, try again.")
+        print(f"\nError: Failed to bind to the selected port[{PORT}]. Please try again.")
         exit(1)
 
-    update_credentials() # Generate new credentials
+    # Generate and print new credentials
+    update_credentials(str("\n\n ⚠️  Warning: Only run this on your private networks."))
     print("- Follow instructions of ReadMe.md for secure File-Sharing.\n")
 
-    server.timeout = CONFIG["refresh_time_seconds"]
+    cleanup_time = CONFIG['cleanup_timeout'] * 60
+    idle_timeout = CONFIG['idle_timeout_minutes'] * 60
 
     try:
         while True:
+            # Clean expired sessions and update current time
             SESSION_MANAGER.clean_expired_sessions()
             current_time = time.time()
 
             # Auto update credentials after cleanUp time
             if LAST_UPDATED_CRED is None:
                 LAST_UPDATED_CRED = current_time
-            elif current_time - LAST_UPDATED_CRED > CONFIG['cleanup_timeout']*60:
+            elif current_time - LAST_UPDATED_CRED > cleanup_time:
                 LAST_UPDATED_CRED = current_time
                 update_credentials(" ⏱️  Old Credentials expired: ")
 
@@ -642,8 +685,8 @@ if __name__ == "__main__":
                 INACTIVITY_START = None
 
             server.handle_request()
-            if INACTIVITY_START and current_time - INACTIVITY_START > CONFIG['idle_timeout_minutes'] * 60:
-                print(f"\n- The server closed after {CONFIG['idle_timeout_minutes']} {'minute' if CONFIG['idle_timeout_minutes'] <= 1 else 'minutes'} of inactivity.\n")
+            if INACTIVITY_START and current_time - INACTIVITY_START > idle_timeout:
+                print(f"\n- Server closed after {CONFIG['idle_timeout_minutes']} {'minute' if CONFIG['idle_timeout_minutes'] <= 1 else 'minutes'} of inactivity.\n")
                 break
 
     except KeyboardInterrupt:
