@@ -1,10 +1,11 @@
 const themeToggle = document.getElementById('themeToggle');
-const body = document.body;
+const root = document.documentElement;
 const themeIcon = document.querySelector('.theme-icon');
-const anim_duration = 400; //In ms, Match CSS animation duration of theme-icon
+
+const anim_duration = 400; //In ms
+document.documentElement.style.setProperty('--anim-duration', anim_duration+'ms');
 
 const savedTheme = sessionStorage.getItem('theme'); // Get theme preference if saved
-
 if (savedTheme) {
     updateTheme(savedTheme === 'dark');
 } else {
@@ -17,7 +18,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', eve
 });
 
 function updateTheme(isDark){
-    body.classList.toggle('dark-theme', isDark);
+    root.classList.toggle('dark-theme', isDark);
     sessionStorage.setItem('theme', isDark ? 'dark' : 'light');
     themeIcon.textContent = isDark ? '🌙' : '☀️';
 }
@@ -30,10 +31,10 @@ function animateIcon() {
 }
 
 themeToggle.addEventListener('click', () => {
-    body.classList.toggle('dark-theme');
+    root.classList.toggle('dark-theme');
     animateIcon();
     setTimeout(() => {
-        const isDark = body.classList.contains('dark-theme');
+        const isDark = root.classList.contains('dark-theme');
         updateTheme(isDark);
     }, anim_duration/2);
     sessionStorage.setItem('theme')
