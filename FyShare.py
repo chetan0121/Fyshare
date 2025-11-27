@@ -1,35 +1,22 @@
-# ╔═══════════════════════════════════════════════════════════╗
-# ║                       F Y S H A R E                       ║
-# ╠═══════════════════════════════════════════════════════════╣
-# ║ GitHub    : https://github.com/chetan0121/Fyshare         ║
-# ║ Author    : Chetan                                        ║
-# ║ Version   : 2.3                                           ║
-# ║                                                           ║
-# ║ FyShare is a lightweight Python-based local file-sharing  ║
-# ║ server with a clean browser UI. It allows secure transfer ║
-# ║ over your LAN (Wi-Fi) using one-time credentials.         ║
-# ╚═══════════════════════════════════════════════════════════╝
-
 # Standard library imports
 import http.server, socketserver
 import os
 import socket
 import time
 import threading
-import re
-import string
+import re, string
 import secrets
 import json
 from html import escape
 from urllib.parse import quote, parse_qs
 from pathlib import Path
 
-# Configuration loading
+# Load Configuration
 CONFIG_PATH = Path(__file__).parent / "config.json"
 if not CONFIG_PATH.exists():
     print("\n\nError: config.json file not found!\n")
     exit(1)
-
+    
 try:
     with CONFIG_PATH.open("r") as f:
         config = json.load(f)
@@ -37,21 +24,22 @@ except json.JSONDecodeError:
     print("\nError: Invalid JSON in config.json\n")
     exit(1)
 
+# Create dict and Normalize value types of config
 CONFIG = {
-    "root_directory": str(config["root_directory"]),  # Serving root directory
-    "max_users": int(config["max_users"]),  # Max users to access server
-    "idle_timeout_minutes": int(config["idle_timeout_minutes"]),  # Auto stopping server based on inactivity
-    "refresh_time_seconds": float(config["refresh_time_seconds"]),  # Server Refresh time
-    "max_attempts_per_ip": int(config["max_attempts_per_ip"]),  # legal attempts before cool-down
-    "cooldown_seconds": float(config["cooldown_seconds"]),    # IP in coolDown if exceed max_attempts
-    "max_total_attempts_per_ip": int(config["max_total_attempts_per_ip"]),
-    "block_time_minutes": int(config["block_time_minutes"]),    # IP Blocked if exceed max_total_attempts
-    "cleanup_timeout": int(config["cleanup_timeout_minutes"]),  # Clean up old attempts, by timeout in minutes
-    "update_credentials_after_attempts": int(config["update_credentials_after_attempts"]),
-    "cache_time_out_seconds": float(config["default_cache_time_out_seconds"]) # Cache for static files (Webpage, html, css)
+    "root_directory": str(config["root_directory"]),                        # Root directory served by the server
+    "max_users": int(config["max_users"]),                                  # Maximum number of users allowed to access the server
+    "idle_timeout_m": int(config["idle_timeout_minutes"]),                  # Automatically stop server after this many minutes of inactivity
+    "refresh_time_s": float(config["refresh_time_seconds"]),                # Server refresh/update interval in seconds
+    "max_attempts": int(config["max_attempts_per_ip"]),                     # Allowed failed attempts per IP before cooldown
+    "cooldown_s": float(config["cooldown_seconds"]),                        # Cooldown duration for an IP after exceeding "max_attempts"
+    "max_total_attempts": int(config["max_total_attempts_per_ip"]),         # Total allowed attempts before IP is blocked
+    "block_time_m": int(config["block_time_minutes"]),                      # Duration of an IP remains blocked (after reaching "max_total_attempts")
+    "cleanup_timeout_m": int(config["cleanup_timeout_minutes"]),            # Time in minutes, before old attempts are cleaned up
+    "update_credentials": int(config["update_credentials_after_attempts"]), # Update credentials after N failed attempts
+    "cache_time_out_s": float(config["default_cache_time_out_seconds"])     # Cache duration for static files (HTML, CSS, etc...)
 }
 
-# === Global variables and CONSTANTS ===
+# ==== Global variables and CONSTANTS ====
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -62,7 +50,7 @@ INACTIVITY_START = None
 # Global thread_lock for credential related updates
 credentials_lock = threading.Lock()
 
-# Session timeout options
+# Session timeout options (CONSTANT)
 OPTIONS = [
     (5, "5 minutes"),
     (15, "15 minutes"),
@@ -70,8 +58,9 @@ OPTIONS = [
     (60, "1 hour"),
     (120, "2 hours")
 ]
+# ========================================
 
-
+# Session Manage class (Handles users/session)
 class SessionManager:
     def __init__(self):
         self.sessions = {}  # {token: {'ip': ip, 'expiry': timestamp}}
@@ -108,14 +97,14 @@ class SessionManager:
                 data['count'] += 1
                 data['last_time'] = current_time
 
-                if data['count'] >= CONFIG['max_total_attempts_per_ip']:
-                    data['blocked_until'] = current_time + CONFIG['block_time_minutes'] * 60
-                    print(f"\n- Blocked IP[{ip}] for {CONFIG['block_time_minutes']} minutes due to excessive attempts.\n")
+                if data['count'] >= CONFIG['max_total_attempts']:
+                    data['blocked_until'] = current_time + CONFIG['block_time_m'] * 60
+                    print(f"\n- Blocked IP[{ip}] for {CONFIG['block_time_m']} minutes due to excessive attempts.\n")
                     return
 
-                if data['count'] % CONFIG['max_attempts_per_ip'] == 0:
-                    data['cool_until'] = current_time + CONFIG['cooldown_seconds']
-                    print(f"\n- UserIP[{ip}] is in cool-down for {CONFIG['cooldown_seconds']} seconds due to excessive attempts.\n")
+                if data['count'] % CONFIG['max_attempts'] == 0:
+                    data['cool_until'] = current_time + CONFIG['cooldown_s']
+                    print(f"\n- UserIP[{ip}] is in cool-down for {CONFIG['cooldown_s']} seconds due to excessive attempts.\n")
                     return
 
 
@@ -140,39 +129,38 @@ class SessionManager:
                     continue
 
                 # Clean raw attempts
-                if 'last_time' in data and current_time - data['last_time'] > CONFIG['cleanup_timeout']*60:
+                if 'last_time' in data and current_time - data['last_time'] > CONFIG['cleanup_timeout_m']*60:
                     expired_ips.append(ip)
 
             # Remove fully expired entries
             for ip in expired_ips:
                 del self.attempts[ip]
 
-
+# Create Obj Of SessionManager Class
 SESSION_MANAGER = SessionManager()
 
 # Custom Exception (Inherited Exception class)
-class ConfigError(Exception):
-    pass
+class ConfigError(Exception): pass
 
 def checkConfig():
     if CONFIG['max_users'] <= 0:
         raise ConfigError("Max_users must be more than 0")
 
-    if CONFIG['idle_timeout_minutes'] <= 1:
-        raise ConfigError("Idle_timeout_minutes must be more than 1")
+    if CONFIG['idle_timeout_m'] <= 0:
+        raise ConfigError("Idle_timeout_minutes must be more than 0")
 
-    if CONFIG['refresh_time_seconds'] <= 0 or CONFIG['refresh_time_seconds'] > 600:
+    if CONFIG['refresh_time_s'] <= 0 or CONFIG['refresh_time_s'] > 600:
         raise ConfigError("Refresh_time_seconds must be between 1 and 600")
 
-    if CONFIG['max_attempts_per_ip'] >= CONFIG['max_total_attempts_per_ip'] or CONFIG['max_attempts_per_ip'] <= 1:
+    if CONFIG['max_attempts'] <= 1 or CONFIG['max_attempts'] >= CONFIG['max_total_attempts']:
         raise ConfigError("Invalid attempt limits configuration")
 
-    if CONFIG['cooldown_seconds'] <= 1 \
-      or CONFIG['cooldown_seconds'] >= CONFIG['block_time_minutes']*60 \
-      or CONFIG['block_time_minutes'] > CONFIG['cleanup_timeout']:
+    if CONFIG['cooldown_s'] <= 1 \
+      or CONFIG['cooldown_s'] >= CONFIG['block_time_m']*60 \
+      or CONFIG['block_time_m'] > CONFIG['cleanup_timeout_m']:
         raise ConfigError("Bad timing configuration")
 
-    if CONFIG['update_credentials_after_attempts'] < 5 or CONFIG['cache_time_out_seconds'] < 0:
+    if CONFIG['update_credentials'] < 5 or CONFIG['cache_time_out_s'] < 0:
         raise ConfigError("Invalid cache or credential timeout settings")
 
 def generate_username():
@@ -189,7 +177,7 @@ def generate_otp(length=6):
     return ''.join(secrets.choice(string.digits) for _ in range(length))
 
 def get_local_ip() -> str:
-    # Connect to a public DNS server to discover our outgoing interface
+    # Connect to a public DNS server to discover outgoing interface
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as socket_conn:
         socket_conn.connect(("8.8.8.8", 80))
         local_ip = socket_conn.getsockname()[0]
@@ -201,7 +189,7 @@ def get_local_ip() -> str:
     # Bind to all available network interfaces (for LAN)
     return "0.0.0.0"
 
-def update_credentials(message):
+def update_credentials(message = str("")):
     global USERNAME, GLOBAL_TOTAL_ATTEMPTS
     with credentials_lock:
         local_ip = get_local_ip()
@@ -217,17 +205,17 @@ def update_credentials(message):
         print(f"   👤 Username  : {USERNAME}")
         print(f"   🔑 OTP       : {FileHandler.current_otp}")
         print(f"   👥 Max users : {CONFIG['max_users']} Allowed")
-        print(f"   ⏳ Time Out  : {CONFIG['idle_timeout_minutes']} minutes of inactivity")
+        print(f"   ⏳ Time Out  : {CONFIG['idle_timeout_m']} {'minute' if CONFIG['idle_timeout_m'] == 1 else 'minutes'} of inactivity")
         print("\n---------------------------------------------")
 
-        if GLOBAL_TOTAL_ATTEMPTS > CONFIG['update_credentials_after_attempts']*10:
-            print(f"\n- Total attempts exceeded the limit {CONFIG['update_credentials_after_attempts']*10} attempts.")
+        if GLOBAL_TOTAL_ATTEMPTS > CONFIG['update_credentials']*10:
+            print(f"\n- Total attempts exceeded the limit {CONFIG['update_credentials']*10} attempts.")
             print("\nShutting down the server...\n", flush=True)
             exit(1)
 
 
 class FileHandler(http.server.SimpleHTTPRequestHandler):
-    current_otp = str() # Empty string
+    current_otp = str("")   # Empty string
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=ROOT_DIR, **kwargs)
@@ -267,7 +255,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             if favicon_path.exists():
                 with favicon_path.open('rb') as f:
                     self.send_response(200)
-                    self.send_security_headers(cache_time=CONFIG['cache_time_out_seconds'])
+                    self.send_security_headers(cache_time=CONFIG['cache_time_out_s'])
                     self.send_header('Content-Type', 'image/x-icon')
                     self.end_headers()
                     self.wfile.write(f.read())
@@ -310,7 +298,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
 
                 file_size = file_path.stat().st_size
                 self.send_response(200)
-                self.send_security_headers(cache_time=CONFIG['cache_time_out_seconds'])
+                self.send_security_headers(cache_time=CONFIG['cache_time_out_s'])
                 self.send_header('Content-Type', content_type)
                 self.send_header('Content-Length', str(file_size))
                 self.end_headers()
@@ -335,7 +323,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                 try:
                     file_size = file_path.stat().st_size
                     self.send_response(200)
-                    self.send_security_headers(cache_time=CONFIG['cache_time_out_seconds'])
+                    self.send_security_headers(cache_time=CONFIG['cache_time_out_s'])
                     self.send_header('Content-Type', 'text/html')
                     self.send_header('Content-Length', str(file_size))
                     self.end_headers()
@@ -411,7 +399,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                 SESSION_MANAGER.update_attempts(client_ip, current_time)
                 global GLOBAL_TOTAL_ATTEMPTS
                 GLOBAL_TOTAL_ATTEMPTS += 1
-                if GLOBAL_TOTAL_ATTEMPTS % CONFIG['update_credentials_after_attempts'] == 0:
+                if GLOBAL_TOTAL_ATTEMPTS % CONFIG['update_credentials'] == 0:
                     global LAST_UPDATED_CRED
                     LAST_UPDATED_CRED = None
                     update_credentials("⚠️ Too many failed attempts on server")
@@ -602,7 +590,7 @@ if __name__ == "__main__":
         checkConfig()
     except ConfigError as e:
         print(f"\nError[Config]: {e}")
-        print("\n- Stopped initializing server.")
+        print("\n- Stopped initializing server")
         exit(1)
 
     # Default OS Root directory detection
@@ -641,29 +629,30 @@ if __name__ == "__main__":
     try:
         with (TEMPLATES_DIR / 'login.html').open('r', encoding="utf-8") as f:
             LOGIN_TEMPLATE = f.read()
-        with (TEMPLATES_DIR / 'index.html').open('r', encoding="utf-8") as f:
+        with (TEMPLATES_DIR / 'fyshare.html').open('r', encoding="utf-8") as f:
             FILE_MANAGER_TEMPLATE = f.read()
     except FileNotFoundError as e:
         print(f"\nError Template files not found: {e}\n")
         exit(1)
 
-    # Generate OTP
+    # Randomly select port between 1500 and 9500
     PORT = secrets.choice(range(1500, 9500))
 
     # Initialize the server and check if randomly selected port is available
     try:
         server = socketserver.ThreadingTCPServer(("", PORT), FileHandler)
-        server.timeout = CONFIG["refresh_time_seconds"]
+        server.timeout = CONFIG["refresh_time_s"]
     except OSError:
         print(f"\nError: Failed to bind to the selected port[{PORT}]. Please try again.")
         exit(1)
 
     # Generate and print new credentials
-    update_credentials(str("\n\n ⚠️  Warning: Only run this on your private networks."))
+    update_credentials("\n\n ⚠️  Warning: Only run this on your private networks.")
     print("- Follow instructions of ReadMe.md for secure File-Sharing.\n")
 
-    cleanup_time = CONFIG['cleanup_timeout'] * 60
-    idle_timeout = CONFIG['idle_timeout_minutes'] * 60
+    # Constant configs
+    cleanup_time_s = CONFIG['cleanup_timeout_m'] * 60
+    idle_timeout_s = CONFIG['idle_timeout_m'] * 60
 
     try:
         while True:
@@ -674,7 +663,7 @@ if __name__ == "__main__":
             # Auto update credentials after cleanUp time
             if LAST_UPDATED_CRED is None:
                 LAST_UPDATED_CRED = current_time
-            elif current_time - LAST_UPDATED_CRED > cleanup_time:
+            elif current_time - LAST_UPDATED_CRED > cleanup_time_s:
                 LAST_UPDATED_CRED = current_time
                 update_credentials(" ⏱️  Old Credentials expired: ")
 
@@ -684,10 +673,14 @@ if __name__ == "__main__":
             elif SESSION_MANAGER.sessions:
                 INACTIVITY_START = None
 
+            # Continually handle incoming requests, one at a time (return after server.timeout)
             server.handle_request()
-            if INACTIVITY_START and current_time - INACTIVITY_START > idle_timeout:
-                print(f"\n- Server closed after {CONFIG['idle_timeout_minutes']} {'minute' if CONFIG['idle_timeout_minutes'] <= 1 else 'minutes'} of inactivity.\n")
+
+            # Shutdown server automatically after idle-timeout
+            if INACTIVITY_START and (current_time - INACTIVITY_START) > idle_timeout_s:
+                print(f"\n- Server closed after {CONFIG['idle_timeout_m']} {'minute' if CONFIG['idle_timeout_m'] == 1 else 'minutes'} of inactivity.\n")
                 break
 
+    # Handle manual shutdown when Ctrl+C is pressed in the terminal
     except KeyboardInterrupt:
         print("\n\n- Server stopped manually!\n")
