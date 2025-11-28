@@ -6,6 +6,7 @@ __pycache__/
 FolderStructure.md
 
 # Logs & temp
+logs
 *.log
 temp/
 tmp/
