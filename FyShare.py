@@ -7,21 +7,58 @@ import threading
 import re, string
 import secrets
 import json
+import logging
+from sys import stderr
+from logging.handlers import RotatingFileHandler
 from html import escape
 from urllib.parse import quote, parse_qs
 from pathlib import Path
 
+# Custom function to print errors & warning
+def printError(msg="\n", end="\n"):
+    stderr.write(f"\033[91m{msg}\033[0m{end}")  # In Red
+
+def printWarning(msg="\n", end="\n"):
+    stderr.write(f"\033[33m{msg}\033[0m{end}")  # In Yellow
+
+# Create Log file in logs
+LOG_FILE = Path(__file__).parent / "logs" / "server.log"
+LOG_FILE.parent.mkdir(exist_ok=True)
+
+# Logs config
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format='%(asctime)s | %(message)s',
+    datefmt = f"%Y-%m-%d %H:%M:%S"
+)
+
+# Handle logging files
+file_handler = RotatingFileHandler(
+    LOG_FILE, 
+    maxBytes=1_000_000,
+    backupCount=3,
+    encoding='utf-8'
+)
+
+# Format for Logging
+formatter = logging.Formatter(
+    fmt='%(asctime)s | %(levelname)-8s | %(threadName)-12s | %(ip)-15s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+file_handler.setFormatter(formatter)
+
 # Load Configuration
 CONFIG_PATH = Path(__file__).parent / "config.json"
 if not CONFIG_PATH.exists():
-    print("\n\nError: config.json file not found!\n")
+    printError("\nError: config.json file not found!\n")
     exit(1)
     
 try:
     with CONFIG_PATH.open("r") as f:
         config = json.load(f)
 except json.JSONDecodeError:
-    print("\nError: Invalid JSON in config.json\n")
+    printError("\nError: Invalid JSON code in config.json\n")
     exit(1)
 
 # Create dict and Normalize value types of config
@@ -39,7 +76,7 @@ CONFIG = {
     "cache_time_out_s": float(config["default_cache_time_out_seconds"])     # Cache duration for static files (HTML, CSS, etc...)
 }
 
-# ==== Global variables and CONSTANTS ====
+# ==== Global variables and Constants ====
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -85,7 +122,8 @@ class SessionManager:
             current_time = time.time()
             expired = [t for t, s in self.sessions.items() if current_time > s['expiry']]
             for token in expired:
-                print(f"\n- Session expired for IP: [{self.sessions[token]['ip']}]\n")
+                print(f"\n- Session expired for User[{self.sessions[token]['ip']}]\n")
+                logging.info(f"Session expired for User[{self.sessions[token]['ip']}]")
                 del self.sessions[token]
 
     def update_attempts(self, ip, current_time):
@@ -99,12 +137,14 @@ class SessionManager:
 
                 if data['count'] >= CONFIG['max_total_attempts']:
                     data['blocked_until'] = current_time + CONFIG['block_time_m'] * 60
-                    print(f"\n- Blocked IP[{ip}] for {CONFIG['block_time_m']} minutes due to excessive attempts.\n")
+                    printWarning(f"\n- Blocked IP[{ip}] for {CONFIG['block_time_m']} minutes due to excessive attempts.\n")
+                    logging.warning(f"Blocked User[{ip}] for {CONFIG['block_time_m']} minutes")
                     return
 
                 if data['count'] % CONFIG['max_attempts'] == 0:
                     data['cool_until'] = current_time + CONFIG['cooldown_s']
-                    print(f"\n- UserIP[{ip}] is in cool-down for {CONFIG['cooldown_s']} seconds due to excessive attempts.\n")
+                    print(f"\n- User[{ip}] is in cool-down for {CONFIG['cooldown_s']} seconds due to excessive attempts.\n")
+                    logging.info(f"User[{ip}] is in cool-down for {CONFIG['cooldown_s']} seconds")
                     return
 
 
@@ -124,7 +164,8 @@ class SessionManager:
             for ip, data in list(self.attempts.items()):
                 # Clean expired blocks
                 if 'blocked_until' in data and current_time >= data['blocked_until']:
-                    print(f"\n- Unblocked IP: {ip}\n")
+                    print(f"\n- Unblocked User[{ip}]\n")
+                    logging.info(f"Unblocked User[{ip}]")
                     expired_ips.append(ip)
                     continue
 
@@ -146,19 +187,20 @@ def checkConfig():
     if CONFIG['max_users'] <= 0:
         raise ConfigError("Max_users must be more than 0")
 
-    if CONFIG['idle_timeout_m'] <= 0:
+    if CONFIG['idle_timeout_m'] <= 1:
         raise ConfigError("Idle_timeout_minutes must be more than 0")
 
     if CONFIG['refresh_time_s'] <= 0 or CONFIG['refresh_time_s'] > 600:
         raise ConfigError("Refresh_time_seconds must be between 1 and 600")
 
-    if CONFIG['max_attempts'] <= 1 or CONFIG['max_attempts'] >= CONFIG['max_total_attempts']:
-        raise ConfigError("Invalid attempt limits configuration")
+    if CONFIG['max_attempts'] < 1 or CONFIG['max_attempts'] >= CONFIG['max_total_attempts']:
+        raise ConfigError("Invalid attempt limits")
 
-    if CONFIG['cooldown_s'] <= 1 \
-      or CONFIG['cooldown_s'] >= CONFIG['block_time_m']*60 \
-      or CONFIG['block_time_m'] > CONFIG['cleanup_timeout_m']:
+    if CONFIG['cooldown_s'] < 0 or CONFIG['cooldown_s'] >= CONFIG['block_time_m']*60:
         raise ConfigError("Bad timing configuration")
+    
+    if CONFIG['block_time_m'] > CONFIG['cleanup_timeout_m']:
+        raise ConfigError("Block_time can't be more than cleanup_timeout")
 
     if CONFIG['update_credentials'] < 5 or CONFIG['cache_time_out_s'] < 0:
         raise ConfigError("Invalid cache or credential timeout settings")
@@ -190,16 +232,15 @@ def get_local_ip() -> str:
     return "0.0.0.0"
 
 def update_credentials(message = str("")):
-    global USERNAME, GLOBAL_TOTAL_ATTEMPTS
+    global USERNAME, GLOBAL_TOTAL_ATTEMPTS, LOCAL_IP
     with credentials_lock:
-        local_ip = get_local_ip()
         USERNAME = generate_username()
         FileHandler.current_otp = generate_otp()
         
-        print(f"\n{message}")
+        printWarning(f"\n{message}")
         print("---------------------------------------------")
         print(f"\n📂 Serving directory: \"{ROOT_DIR}\"")
-        print(f"🚀 Open in browser: http://{local_ip}:{PORT}")
+        print(f"🚀 Open in browser: http://{LOCAL_IP}:{PORT}")
 
         print(f"\n🔐 Credentials:")
         print(f"   👤 Username  : {USERNAME}")
@@ -209,8 +250,9 @@ def update_credentials(message = str("")):
         print("\n---------------------------------------------")
 
         if GLOBAL_TOTAL_ATTEMPTS > CONFIG['update_credentials']*10:
-            print(f"\n- Total attempts exceeded the limit {CONFIG['update_credentials']*10} attempts.")
+            printWarning(f"\n- Total attempts exceeded the limit {CONFIG['update_credentials']*10} attempts.")
             print("\nShutting down the server...\n", flush=True)
+            logging.warning(f"Shutting down server after Total {GLOBAL_TOTAL_ATTEMPTS} rapid attempts of login")
             exit(1)
 
 
@@ -268,6 +310,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             if session_token and SESSION_MANAGER.get_session(session_token):
                 client_ip = SESSION_MANAGER.get_session(session_token)['ip']
                 print(f"\n- User[{client_ip}] logged-out.\n", flush=True)
+                logging.info(f"User[{client_ip}] logged-out.")
                 SESSION_MANAGER.remove_session(session_token)
 
             self.send_response(302)
@@ -282,7 +325,8 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             
             if not file_path.exists() or not file_path.is_file():
                 self.send_error(404, "File not found")
-                print(f"\n- User[{client_ip}] tried to access invalid static file.\n")
+                printWarning(f"\n- User[{client_ip}] tried to access invalid static file.\n")
+                logging.warning(f"User[{client_ip}] tried to access invalid static file")
                 return
 
             try:
@@ -310,7 +354,8 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             
             except Exception as e:
                 self.send_error(500, f"Internal Server Error")
-                print(f"\nError: Serving file {str(e)}\n")
+                printError(f"\nError: Serving file {str(e)}\n")
+                logging.error(f"Error [Serving file]: {str(e)}")
                 return
 
         if not self.check_authentication():
@@ -332,7 +377,8 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                             self.wfile.write(chunk)
                 except Exception as e:
                     self.send_error(500, f"Error: Something went wrong.")
-                    print(f"\nError: Serving html file {str(e)}.\n")
+                    printError(f"\nError: Serving html file {str(e)}.\n")
+                    logging.error(f"Error [Serving html]: {str(e)}")
             else:
                 self.send_error(404, "File not found")
         else:
@@ -393,6 +439,9 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header('Location', self.path)
                     self.send_header('Set-Cookie', f'session_token={session_token}; Path=/; HttpOnly; Max-Age={max_age}; SameSite=Strict')
                     self.end_headers()
+
+                    print(f"\n- User[{client_ip}] logged-in\n")
+                    logging.info(f"User[{client_ip}] logged-in")
                 else:
                     self.send_login_page(message="Session expired. Please log in again.")
             else:
@@ -416,7 +465,8 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
         if not session_token or not session_data:
             return False
         if session_data['ip'] != self.client_address[0]:
-            print(f"\n- Session-token stolen from {session_data['ip']}, Request terminated!\n")
+            printWarning(f"\n- Session-token stolen from {session_data['ip']}, Request terminated!\n")
+            logging.warning(f"Session-token stolen from User[{session_data['ip']}]")
             SESSION_MANAGER.remove_session(session_token)
             return False
         if time.time() >= session_data['expiry']:
@@ -438,7 +488,8 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(html.encode('utf-8'))
         except Exception as e:
             self.send_error(500, f"Error: Something went wrong.")
-            print(f"\nError: Rendering login page ({str(e)})\n", flush=True)
+            printError(f"\nError: Rendering login page ({str(e)})\n", flush=True)
+            logging.error(f"Error [Rendering login page]: {str(e)}")
 
     def translate_path(self, path):
         path = super().translate_path(path)
@@ -461,7 +512,8 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             return None
         except Exception as e:
             self.send_error(500, "Internal Server Error")
-            print(f"\nError generating directory listing for {path}: {str(e)}\n")
+            printError(f"\nError generating directory listing for {path}: {str(e)}\n")
+            logging.error(f"Error generating directory listing for {path}: {str(e)}")
             return None
 
         file_list.sort(key=lambda a: (not a.is_dir(), a.name.lower()))
@@ -478,12 +530,13 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(encoded)
         except Exception as e:
             self.send_error(500, f"Error generating response.")
-            print(f"\nError generating response: {str(e)}\n")
+            printError(f"\nError [generating response]: {str(e)}\n")
+            logging.error(f"Error [generating response]: {str(e)}")
 
     def generate_html(self, file_list, displaypath):
         if not FILE_MANAGER_TEMPLATE:
             self.send_error(500, "Something went wrong.")
-            print("\nError: FILE_MANAGER_TEMPLATE is undefined or empty\n", flush=True)
+            printError("\nError: FILE_MANAGER_TEMPLATE is undefined or empty\n", flush=True)
             return ""
         
         template = FILE_MANAGER_TEMPLATE
@@ -526,7 +579,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                     <td>{action}</td>
                 </tr>"""
             except Exception as e:
-                print(f"\nError processing {entry.name}: {str(e)}\n")
+                printError(f"\nError processing {entry.name}: {str(e)}\n")
                 continue
             
         return template.replace('{{breadcrumbs}}', breadcrumbs).replace('{{table_rows}}', table_rows)
@@ -589,7 +642,7 @@ if __name__ == "__main__":
     try:
         checkConfig()
     except ConfigError as e:
-        print(f"\nError[Config]: {e}")
+        printError(f"\nError[Config]: {e}")
         print("\n- Stopped initializing server")
         exit(1)
 
@@ -608,21 +661,21 @@ if __name__ == "__main__":
     if opt == 2:
         ROOT_DIR = Path(input("\nEnter path: "))
     elif opt != 1:
-        print("\n- Invalid option!\n")
+        printError("\nError: Invalid option\n")
         exit(1)
     
     # Verify all paths
     if not ROOT_DIR.exists():
-        print(f"\nError: Root directory {ROOT_DIR} not found!")
+        printError(f"\nError: Root directory {ROOT_DIR} not found!")
         exit(1)
     if not TEMPLATES_DIR.exists():
-        print(f"\nError: Templates directory {TEMPLATES_DIR} not found!")
+        printError(f"\nError: Templates directory {TEMPLATES_DIR} not found!")
         exit(1)
     if not STATIC_DIR.exists():
-        print(f"\nError: Static directory {STATIC_DIR} not found!")
+        printError(f"\nError: Static directory {STATIC_DIR} not found!")
         exit(1)
     if not os.access(ROOT_DIR, os.R_OK):
-        print(f"\nError: No read permissions for {ROOT_DIR}")
+        printError(f"\nError: No read permissions for {ROOT_DIR}")
         exit(1)
 
     # Verify and load template files
@@ -632,23 +685,32 @@ if __name__ == "__main__":
         with (TEMPLATES_DIR / 'fyshare.html').open('r', encoding="utf-8") as f:
             FILE_MANAGER_TEMPLATE = f.read()
     except FileNotFoundError as e:
-        print(f"\nError Template files not found: {e}\n")
+        printError(f"\nError [Template files not found]: {e}\n")
+        logging.error(f"Error [Template files not found]: {e}")
         exit(1)
 
     # Randomly select port between 1500 and 9500
     PORT = secrets.choice(range(1500, 9500))
+
+    # Fetch Current device's IP
+    LOCAL_IP = get_local_ip()
 
     # Initialize the server and check if randomly selected port is available
     try:
         server = socketserver.ThreadingTCPServer(("", PORT), FileHandler)
         server.timeout = CONFIG["refresh_time_s"]
     except OSError:
-        print(f"\nError: Failed to bind to the selected port[{PORT}]. Please try again.")
+        printError(f"\nError [Initializing server]: Failed to bind to the selected port[{PORT}], Please try again.")
+        exit(1)
+    except Exception as e:
+        printError(f"\nError [Initializing server]: {str(e)}")
         exit(1)
 
     # Generate and print new credentials
     update_credentials("\n\n ⚠️  Warning: Only run this on your private networks.")
     print("- Follow instructions of ReadMe.md for secure File-Sharing.\n")
+
+    logging.info(f"Started server 'http://{LOCAL_IP}:{PORT}' | Root directory: '{ROOT_DIR}'")
 
     # Constant configs
     cleanup_time_s = CONFIG['cleanup_timeout_m'] * 60
@@ -678,9 +740,12 @@ if __name__ == "__main__":
 
             # Shutdown server automatically after idle-timeout
             if INACTIVITY_START and (current_time - INACTIVITY_START) > idle_timeout_s:
-                print(f"\n- Server closed after {CONFIG['idle_timeout_m']} {'minute' if CONFIG['idle_timeout_m'] == 1 else 'minutes'} of inactivity.\n")
+                minutePrint = 'minute' if CONFIG['idle_timeout_m'] == 1 else 'minutes'
+                print(f"\n- Server closed after {CONFIG['idle_timeout_m']} {minutePrint} of inactivity.\n")
+                logging.info(f"Server closed after {CONFIG['idle_timeout_m']} {minutePrint} of inactivity\n")
                 break
 
     # Handle manual shutdown when Ctrl+C is pressed in the terminal
     except KeyboardInterrupt:
-        print("\n\n- Server stopped manually!\n")
+        print("\n- Server stopped manually!\n")
+        logging.info("Server stopped manually\n")
