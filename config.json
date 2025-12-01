@@ -8,7 +8,6 @@
   "cooldown_seconds": 60,
   "block_time_minutes": 5,
   "cleanup_timeout_minutes": 15,
-  "update_credentials_after_attempts": 20,
   "default_cache_time_out_seconds": "1800"
 }
 
