@@ -1,7 +1,7 @@
 # FyShare
 
 FyShare is a lightweight Python-based local file sharing server with a clean HTML/CSS/JS interface. It lets you share files securely over your Local Area Network (LAN — e.g. your home Wi-Fi) using one-time credentials.  
-The server is fully self-contained, requires **no external dependencies**, and runs on Python 3.x.  
+The server is fully self-contained, requires **no external dependencies**, and runs on Python 3.6+  
 
 ---
 
@@ -11,7 +11,7 @@ The server is fully self-contained, requires **no external dependencies**, and r
 Use these steps to host or share directories from your computer:  
 
 1. **Install Python:**  
-   Make sure Python 3.x is installed. You can check with:  
+   Make sure Python 3.6+ is installed. You can check with:  
    `python --version` OR `py --version`
 
 2. **Get FyShare:**  

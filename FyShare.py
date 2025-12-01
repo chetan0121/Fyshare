@@ -14,12 +14,18 @@ from html import escape
 from urllib.parse import quote, parse_qs
 from pathlib import Path
 
-# Custom function to print errors & warning
+# Custom Func for Styled text-printing
+def printCustom(txt="\n", *ansiCode):
+    ansiCode = [str(a) for a in ansiCode if isinstance(a, int)]
+    ansiCodes = "\033[" + ";".join(ansiCode) + "m"
+    msg = str(ansiCodes + txt + "\033[0m")
+    stderr.write(f"{msg}\n")  
+
 def printError(msg="\n", end="\n"):
-    stderr.write(f"\033[91m{msg}\033[0m{end}")  # In Red
+    stderr.write(f"\033[91;1m{msg}\033[0m{end}")  # Text in Red
 
 def printWarning(msg="\n", end="\n"):
-    stderr.write(f"\033[33m{msg}\033[0m{end}")  # In Yellow
+    stderr.write(f"\033[33m{msg}\033[0m{end}")  # Text in yellow
 
 # Create Log file in logs
 LOG_FILE = Path(__file__).parent / "logs" / "server.log"
@@ -35,7 +41,7 @@ logging.basicConfig(
 
 # Handle logging files
 file_handler = RotatingFileHandler(
-    LOG_FILE, 
+    LOG_FILE,
     maxBytes=1_000_000,
     backupCount=3,
     encoding='utf-8'
@@ -51,14 +57,14 @@ file_handler.setFormatter(formatter)
 # Load Configuration
 CONFIG_PATH = Path(__file__).parent / "config.json"
 if not CONFIG_PATH.exists():
-    printError("\nError: config.json file not found!\n")
+    printError("\n[Error]: config.json file not found!\n")
     exit(1)
     
 try:
     with CONFIG_PATH.open("r") as f:
         config = json.load(f)
 except json.JSONDecodeError:
-    printError("\nError: Invalid JSON code in config.json\n")
+    printError("\n[Error]: Invalid JSON code in config.json\n")
     exit(1)
 
 # Create dict and Normalize value types of config
@@ -68,11 +74,10 @@ CONFIG = {
     "idle_timeout_m": int(config["idle_timeout_minutes"]),                  # Automatically stop server after this many minutes of inactivity
     "refresh_time_s": float(config["refresh_time_seconds"]),                # Server refresh/update interval in seconds
     "max_attempts": int(config["max_attempts_per_ip"]),                     # Allowed failed attempts per IP before cooldown
-    "cooldown_s": float(config["cooldown_seconds"]),                        # Cooldown duration for an IP after exceeding "max_attempts"
+    "cooldown_s": int(config["cooldown_seconds"]),                          # Cooldown duration for an IP after exceeding "max_attempts"
     "max_total_attempts": int(config["max_total_attempts_per_ip"]),         # Total allowed attempts before IP is blocked
     "block_time_m": int(config["block_time_minutes"]),                      # Duration of an IP remains blocked (after reaching "max_total_attempts")
     "cleanup_timeout_m": int(config["cleanup_timeout_minutes"]),            # Time in minutes, before old attempts are cleaned up
-    "update_credentials": int(config["update_credentials_after_attempts"]), # Update credentials after N failed attempts
     "cache_time_out_s": float(config["default_cache_time_out_seconds"])     # Cache duration for static files (HTML, CSS, etc...)
 }
 
@@ -93,8 +98,9 @@ OPTIONS = [
     (15, "15 minutes"),
     (30, "30 minutes"),
     (60, "1 hour"),
-    (120, "2 hours")
+    (120, "2 hours"),
 ]
+OPTIONS.sort(key=lambda x: x[0])
 # ========================================
 
 # Session Manage class (Handles users/session)
@@ -119,7 +125,7 @@ class SessionManager:
 
     def clean_expired_sessions(self):
         with self.lock:
-            current_time = time.time()
+            current_time = time.monotonic()
             expired = [t for t, s in self.sessions.items() if current_time > s['expiry']]
             for token in expired:
                 print(f"\n- Session expired for User[{self.sessions[token]['ip']}]\n")
@@ -158,7 +164,7 @@ class SessionManager:
 
     def clean_expired_attempts(self):
         with self.lock:
-            current_time = time.time()
+            current_time = time.monotonic()
             expired_ips = []
 
             for ip, data in list(self.attempts.items()):
@@ -184,26 +190,32 @@ SESSION_MANAGER = SessionManager()
 class ConfigError(Exception): pass
 
 def checkConfig():
-    if CONFIG['max_users'] <= 0:
-        raise ConfigError("Max_users must be more than 0")
+    if CONFIG['max_users'] <= 0 or CONFIG['max_users'] > 100:
+        raise ConfigError("max_users must be a natural number from 1 to 100")
 
-    if CONFIG['idle_timeout_m'] <= 1:
-        raise ConfigError("Idle_timeout_minutes must be more than 0")
+    if CONFIG['idle_timeout_m'] <= 1 or CONFIG['idle_timeout_m'] > 1440:
+        raise ConfigError("idle_timeout_minutes must be between 1 and 1440 (24-hours)")
 
-    if CONFIG['refresh_time_s'] <= 0 or CONFIG['refresh_time_s'] > 600:
-        raise ConfigError("Refresh_time_seconds must be between 1 and 600")
+    if CONFIG['refresh_time_s'] <= 0 or CONFIG['refresh_time_s'] > 30:
+        raise ConfigError("Refresh_time_seconds must be between 1 and 30 seconds")
 
     if CONFIG['max_attempts'] < 1 or CONFIG['max_attempts'] >= CONFIG['max_total_attempts']:
         raise ConfigError("Invalid attempt limits")
+    
+    if CONFIG['max_total_attempts'] > 50:
+        raise ConfigError("max_total_attempts_per_ip can't be more than 50 numbers")
 
     if CONFIG['cooldown_s'] < 0 or CONFIG['cooldown_s'] >= CONFIG['block_time_m']*60:
-        raise ConfigError("Bad timing configuration")
+        raise ConfigError("Invalid cooldown_seconds and block_time configuration")
     
     if CONFIG['block_time_m'] > CONFIG['cleanup_timeout_m']:
-        raise ConfigError("Block_time can't be more than cleanup_timeout")
+        raise ConfigError("block_time_minutes can't be more than cleanup_timeout_minutes")
+    
+    if CONFIG['cleanup_timeout_m'] < 10 or CONFIG['cleanup_timeout_m'] > 120:
+        raise ConfigError("cleanup_timeout_minutes must be between 10 and 120 minutes")
 
-    if CONFIG['update_credentials'] < 5 or CONFIG['cache_time_out_s'] < 0:
-        raise ConfigError("Invalid cache or credential timeout settings")
+    if CONFIG['cache_time_out_s'] < 0 or CONFIG['cache_time_out_s'] > 86400:
+        raise ConfigError("default_cache_time_out_seconds must be between 1 and 86400")
 
 def generate_username():
     # pick 4–5 letters
@@ -231,29 +243,25 @@ def get_local_ip() -> str:
     # Bind to all available network interfaces (for LAN)
     return "0.0.0.0"
 
-def update_credentials(message = str("")):
+def generate_credentials(message = str("")):
     global USERNAME, GLOBAL_TOTAL_ATTEMPTS, LOCAL_IP
     with credentials_lock:
         USERNAME = generate_username()
         FileHandler.current_otp = generate_otp()
         
-        printWarning(f"\n{message}")
-        print("---------------------------------------------")
-        print(f"\n📂 Serving directory: \"{ROOT_DIR}\"")
-        print(f"🚀 Open in browser: http://{LOCAL_IP}:{PORT}")
+        printWarning(f"\n\n{message}")
+        printCustom("---------------------------------------------", 1)
+        printCustom(f"\nServing directory: \"{ROOT_DIR}\"", 1)
+        printCustom(f"Open in browser: http://{LOCAL_IP}:{PORT}", 1)
 
-        print(f"\n🔐 Credentials:")
-        print(f"   👤 Username  : {USERNAME}")
-        print(f"   🔑 OTP       : {FileHandler.current_otp}")
-        print(f"   👥 Max users : {CONFIG['max_users']} Allowed")
-        print(f"   ⏳ Time Out  : {CONFIG['idle_timeout_m']} {'minute' if CONFIG['idle_timeout_m'] == 1 else 'minutes'} of inactivity")
-        print("\n---------------------------------------------")
+        printCustom(f"\nCredentials:", 36, 1)
+        print(f"   - Username  : {USERNAME}")
+        print(f"   - OTP       : {FileHandler.current_otp}")
+        print(f"   - Max users : {CONFIG['max_users']} Allowed")
+        print(f"   - Time Out  : {CONFIG['idle_timeout_m']} {'minute' if CONFIG['idle_timeout_m'] == 1 else 'minutes'} of inactivity")
+        printCustom("\n---------------------------------------------", 1)
 
-        if GLOBAL_TOTAL_ATTEMPTS > CONFIG['update_credentials']*10:
-            printWarning(f"\n- Total attempts exceeded the limit {CONFIG['update_credentials']*10} attempts.")
-            print("\nShutting down the server...\n", flush=True)
-            logging.warning(f"Shutting down server after Total {GLOBAL_TOTAL_ATTEMPTS} rapid attempts of login")
-            exit(1)
+        logging.info(f"Generated New Credentials | Message: {message or 'Nothing'}")
 
 
 class FileHandler(http.server.SimpleHTTPRequestHandler):
@@ -282,7 +290,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         client_ip = self.client_address[0]
-        current_time = time.time()
+        current_time = time.monotonic()
 
         if SESSION_MANAGER.is_blocked(client_ip, current_time):
             self.send_response(403, "Access Denied")
@@ -310,7 +318,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             if session_token and SESSION_MANAGER.get_session(session_token):
                 client_ip = SESSION_MANAGER.get_session(session_token)['ip']
                 print(f"\n- User[{client_ip}] logged-out.\n", flush=True)
-                logging.info(f"User[{client_ip}] logged-out.")
+                logging.info(f"User[{client_ip}] logged-out")
                 SESSION_MANAGER.remove_session(session_token)
 
             self.send_response(302)
@@ -348,13 +356,15 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
 
                 with file_path.open('rb') as f:
-                    while chunk := f.read(65536):   # 64KB Chunks
+                    chunk = f.read(65536)   # 64KB chunk
+                    while chunk:
                         self.wfile.write(chunk)
+                        chunk = f.read(65536)
                 return  # Exit after success   
             
             except Exception as e:
                 self.send_error(500, f"Internal Server Error")
-                printError(f"\nError: Serving file {str(e)}\n")
+                printError(f"\nError [Serving file]: {str(e)}\n")
                 logging.error(f"Error [Serving file]: {str(e)}")
                 return
 
@@ -373,8 +383,10 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header('Content-Length', str(file_size))
                     self.end_headers()
                     with file_path.open('rb') as f:
-                        while chunk := f.read(8192):
+                        chunk = f.read(8192)
+                        while chunk:
                             self.wfile.write(chunk)
+                            chunk = f.read(8192)
                 except Exception as e:
                     self.send_error(500, f"Error: Something went wrong.")
                     printError(f"\nError: Serving html file {str(e)}.\n")
@@ -386,7 +398,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         client_ip = self.client_address[0]
-        current_time = time.time()
+        current_time = time.monotonic()
 
         SESSION_MANAGER.clean_expired_attempts()
         if SESSION_MANAGER.is_blocked(client_ip, current_time):
@@ -405,24 +417,19 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
         post_data = self.rfile.read(content_length).decode('utf-8')
         params = parse_qs(post_data)
 
-        submitted_username = params.get('username', [''])[0]
-        submitted_otp = params.get('otp', [''])[0]
-
         # Safely type conversion
         try:
+            submitted_username = str(params.get('username', [''])[0])
+            submitted_otp = str(params.get('otp', [''])[0])
             timeout_seconds = float(params.get('timeout', ['0'])[0])
         except ValueError:
-            self.send_login_page(message="Invalid format for session duration.")
+            self.send_login_page(message="Invalid input values.")
             return
 
         if not self.validate_credentials(submitted_username, submitted_otp, timeout_seconds):
-            self.send_login_page(message="Invalid credentials.")
+            self.send_login_page(message="Invalid input. Please check your username and OTP format.")
             return
 
-        if any(s['ip'] == client_ip for s in SESSION_MANAGER.sessions.values()):
-            self.send_login_page(message="You already have an active session.")
-            return
-        
         if len(SESSION_MANAGER.sessions) >= CONFIG['max_users']:
             self.send_login_page(message="Server busy—too many users. Try again later.")
             return
@@ -431,32 +438,44 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             if submitted_username == USERNAME and submitted_otp == self.current_otp:
                 session_token = secrets.token_hex(32)
                 SESSION_MANAGER.add_session(session_token, client_ip, current_time + timeout_seconds)
-                max_age = int(SESSION_MANAGER.get_session(session_token)['expiry'] - current_time)
+                max_age = int(timeout_seconds)
 
-                if max_age > 0:
-                    self.send_response(302)
-                    self.send_security_headers()
-                    self.send_header('Location', self.path)
-                    self.send_header('Set-Cookie', f'session_token={session_token}; Path=/; HttpOnly; Max-Age={max_age}; SameSite=Strict')
-                    self.end_headers()
+                self.send_response(302)
+                self.send_security_headers()
+                self.send_header('Location', self.path)
+                self.send_header('Set-Cookie', f'session_token={session_token}; Path=/; HttpOnly; Max-Age={max_age}; SameSite=Strict')
+                self.end_headers()
 
-                    print(f"\n- User[{client_ip}] logged-in\n")
-                    logging.info(f"User[{client_ip}] logged-in")
-                else:
-                    self.send_login_page(message="Session expired. Please log in again.")
+                print(f"\n- User[{client_ip}] logged-in on seconds: {max_age}\n")
+                logging.info(f"User[{client_ip}] logged-in")
             else:
                 SESSION_MANAGER.update_attempts(client_ip, current_time)
                 global GLOBAL_TOTAL_ATTEMPTS
                 GLOBAL_TOTAL_ATTEMPTS += 1
-                if GLOBAL_TOTAL_ATTEMPTS % CONFIG['update_credentials'] == 0:
+                if GLOBAL_TOTAL_ATTEMPTS > CONFIG['max_users']*100:
+                    printWarning(f"\n- Total attempts exceeded the limit {CONFIG['max_users']*100} attempts.")
+                    print("\nShutting down the server...\n", flush=True)
+                    logging.warning(f"Shutting down server after Total {GLOBAL_TOTAL_ATTEMPTS} rapid attempts of login")
+                    exit(1)
+
+                if GLOBAL_TOTAL_ATTEMPTS % CONFIG['max_users']*10 == 0:
                     global LAST_UPDATED_CRED
                     LAST_UPDATED_CRED = None
-                    update_credentials("⚠️ Too many failed attempts on server")
+                    generate_credentials("Too many failed attempts on server")
 
                 self.send_login_page(message="Invalid username or OTP.")
 
     def validate_credentials(self, username, otp, timeout):
-        return (re.match(r'^[a-zA-Z0-9]{6,20}$', username) and re.match(r'^\d{6}$', otp) and (60 <= timeout <= 7200))
+        # Validate username: 6–20 alphanumeric characters
+        is_valid_username = bool(re.fullmatch(r'[a-zA-Z0-9]{6,20}', username))
+
+        # Validate OTP: exactly 6 digits
+        is_valid_otp = bool(re.fullmatch(r'\d{6}', otp))
+
+        # Validate timeout: must be between min and max allowed seconds
+        is_valid_timeout = bool((OPTIONS[0][0]*60) <= timeout <= (OPTIONS[-1][0]*60))
+
+        return is_valid_username and is_valid_otp and is_valid_timeout
 
     def check_authentication(self):
         session_token = self.get_session_token()
@@ -469,7 +488,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             logging.warning(f"Session-token stolen from User[{session_data['ip']}]")
             SESSION_MANAGER.remove_session(session_token)
             return False
-        if time.time() >= session_data['expiry']:
+        if time.monotonic() >= session_data['expiry']:
             SESSION_MANAGER.remove_session(session_token)
             return False
         
@@ -488,7 +507,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(html.encode('utf-8'))
         except Exception as e:
             self.send_error(500, f"Error: Something went wrong.")
-            printError(f"\nError: Rendering login page ({str(e)})\n", flush=True)
+            printError(f"\nError [Rendering login page]: {str(e)}\n", flush=True)
             logging.error(f"Error [Rendering login page]: {str(e)}")
 
     def translate_path(self, path):
@@ -496,7 +515,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
         real_path = Path(path).resolve()
         if not str(real_path).startswith(str(Path(ROOT_DIR).resolve())):
             self.send_error(403, "Access denied")
-            return ""
+            return None
         
         return str(real_path)
 
@@ -508,12 +527,12 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(403, "Permission denied")
             return None
         except FileNotFoundError:
-            self.send_error(404, 'Directory not found.')
+            self.send_error(404, "Directory not found.")
             return None
         except Exception as e:
             self.send_error(500, "Internal Server Error")
-            printError(f"\nError generating directory listing for {path}: {str(e)}\n")
-            logging.error(f"Error generating directory listing for {path}: {str(e)}")
+            printError(f"\nError generating directory list for {path}: {str(e)}\n")
+            logging.error(f"Error generating directory list for {path}: {str(e)}")
             return None
 
         file_list.sort(key=lambda a: (not a.is_dir(), a.name.lower()))
@@ -537,7 +556,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
         if not FILE_MANAGER_TEMPLATE:
             self.send_error(500, "Something went wrong.")
             printError("\nError: FILE_MANAGER_TEMPLATE is undefined or empty\n", flush=True)
-            return ""
+            exit(1)
         
         template = FILE_MANAGER_TEMPLATE
         breadcrumbs = self.generate_breadcrumbs(displaypath)
@@ -643,7 +662,7 @@ if __name__ == "__main__":
         checkConfig()
     except ConfigError as e:
         printError(f"\nError[Config]: {e}")
-        print("\n- Stopped initializing server")
+        print("Result: Stopped initializing server")
         exit(1)
 
     # Default OS Root directory detection
@@ -657,11 +676,15 @@ if __name__ == "__main__":
     print("\nSelect path to host:")
     print(f"1. Default ({ROOT_DIR})")
     print( "2. Custom path")
-    opt = int(input("\nEnter option => "))
-    if opt == 2:
-        ROOT_DIR = Path(input("\nEnter path: "))
-    elif opt != 1:
-        printError("\nError: Invalid option\n")
+    try:
+        opt = int(input("\nEnter option => "))
+        if opt == 2:
+            ROOT_DIR = Path(input("\nEnter path: "))
+        elif opt != 1:
+            printError("\nError: Invalid option\n")
+            exit(1)
+    except ValueError:
+        printError("\nError [ValueError]: Invalid input\n")
         exit(1)
     
     # Verify all paths
@@ -699,16 +722,17 @@ if __name__ == "__main__":
     try:
         server = socketserver.ThreadingTCPServer(("", PORT), FileHandler)
         server.timeout = CONFIG["refresh_time_s"]
-    except OSError:
-        printError(f"\nError [Initializing server]: Failed to bind to the selected port[{PORT}], Please try again.")
+    except OSError as e:
+        printError(f"\nError [Initializing server]: Failed to bind to port[{PORT}], Please try again.")
+        print("Details:", e)
         exit(1)
     except Exception as e:
         printError(f"\nError [Initializing server]: {str(e)}")
         exit(1)
 
     # Generate and print new credentials
-    update_credentials("\n\n ⚠️  Warning: Only run this on your private networks.")
-    print("- Follow instructions of ReadMe.md for secure File-Sharing.\n")
+    generate_credentials()
+    print("Refer to ReadMe.md for secure file-sharing instructions.\n")
 
     logging.info(f"Started server 'http://{LOCAL_IP}:{PORT}' | Root directory: '{ROOT_DIR}'")
 
@@ -720,14 +744,14 @@ if __name__ == "__main__":
         while True:
             # Clean expired sessions and update current time
             SESSION_MANAGER.clean_expired_sessions()
-            current_time = time.time()
+            current_time = time.monotonic()
 
             # Auto update credentials after cleanUp time
             if LAST_UPDATED_CRED is None:
                 LAST_UPDATED_CRED = current_time
             elif current_time - LAST_UPDATED_CRED > cleanup_time_s:
                 LAST_UPDATED_CRED = current_time
-                update_credentials(" ⏱️  Old Credentials expired: ")
+                generate_credentials("Old Credentials expired!")
 
             # Handle inactivity timeout
             if not SESSION_MANAGER.sessions and INACTIVITY_START is None:
@@ -745,7 +769,7 @@ if __name__ == "__main__":
                 logging.info(f"Server closed after {CONFIG['idle_timeout_m']} {minutePrint} of inactivity\n")
                 break
 
-    # Handle manual shutdown when Ctrl+C is pressed in the terminal
+    # Handle manual shutdown in the terminal (e.g. Ctrl+C)
     except KeyboardInterrupt:
-        print("\n- Server stopped manually!\n")
+        print("\n\n- Server stopped manually!")
         logging.info("Server stopped manually\n")
