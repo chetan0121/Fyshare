@@ -1,0 +1,356 @@
+:root {
+    scroll-behavior: smooth;
+
+    /* Variables */
+    --primary: #3498db;
+    --secondary: #2c3e50;
+    --third: #f8f9fa;
+    --text: #333;
+    --text-light: #7f8c8d;
+    --bg: #f5f6fa;
+    --card-bg: #ffffff;
+    --border: #eee;
+    --anim-duration: 0ms;
+}
+:root.dark-theme {
+    --primary: #2196f3;
+    --secondary: #1e272e;
+    --third: #1e1e1e;
+    --text: #e0e0e0;
+    --text-light: #aaaaaa;
+    --bg: #121212;
+    --card-bg: #1c1c1c;
+    --border: #2c2c2c;
+}
+
+body {
+    color: var(--text);
+    background: var(--bg);
+    font-family: 'Segoe UI', -apple-system, Roboto, Ubuntu, sans-serif;
+    margin: 0;
+    padding: 20px;
+    padding-bottom: 200px;
+    scrollbar-width: thin;
+}
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.container {
+    max-width: max(1200px, 70vw);
+    background: var(--card-bg);
+    margin: 0 auto;
+    border-radius: 12px;
+    box-shadow: 0 5px 20px #00000033;
+    overflow: hidden;
+}
+:root.dark-theme .container {
+    box-shadow: 0px 5px 25px #0066ff1a;
+}
+
+.header {
+    background: var(--secondary);
+    padding: 20px 30px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+#themeToggle {
+    height: 2.5rem;
+    width: 2.5rem;
+    border-radius: 50%;
+    background-color: #636d75;
+    border: none;
+    cursor: pointer;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease-in-out;
+}
+
+    #themeToggle:hover {
+        background-color: #4f585f;
+    }
+
+    #themeToggle:active {
+        background-color: #353232;
+    }
+
+.logout-btn {
+    background: #e74c3c;
+    color: white;
+    padding: 8px 18px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.9em;
+    font-weight: 500;
+    border: 1px solid transparent;
+    box-shadow: 0px 2px 4px #00000033;
+    cursor: pointer;
+    transition: all 0.2s ease-in;
+}
+    .logout-btn:hover {
+        /* background-color: #c0392b; */
+        background-color: #c0392b;
+        box-shadow: 0px 0px 8px #00000033;
+        color: #f0f0f0;
+    }
+
+    .logout-btn:focus {
+        background: #813a32;
+        color: #d4d4d4;
+        transform: translateY(3px);
+    }
+
+:root.dark-theme .logout-btn {
+    background: #2857c5;
+    color: #f5f5f5;
+}
+    :root.dark-theme .logout-btn:hover {
+        background-color: #0c49d8;
+        box-shadow: 0px 0px 8px #00000066;
+        color: #ffffff;
+    }
+
+    :root.dark-theme .logout-btn:active {
+        background: #0a369b;
+        color: #a6a6a6;
+        transform: translateY(3px);
+    }
+
+h1 {
+    margin: 0;
+    font-size: 1.5em;
+    font-weight: 500;
+}
+
+.breadcrumb {
+    height: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 15px;
+    background: var(--third);
+    border-bottom: 1px solid var(--border);
+    user-select: none;
+}
+
+    .breadcrumb a {
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        transition: all 0.2s;
+    }
+
+        .breadcrumb a:hover {
+            color: #80b7db;
+        }
+
+        :root.dark-theme .breadcrumb a:hover {
+            color: #1169c8;
+        }
+
+    .breadcrumb-sep {
+        margin: 0px 8px;
+        color: var(--text-light);
+    }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+    width: 100%;
+}
+
+th {
+    background: var(--third);
+    padding: 15px 20px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border);
+}
+
+tr {
+    border-bottom: 1px solid var(--border);
+}
+
+    tr:last-child {
+        border-bottom: none;
+    }
+
+    tr:hover {
+        background: #00000005;
+        transition: all 0.2s;
+    }
+
+    :root.dark-theme tr:hover {
+        background: #ffffff0d;
+    }
+
+td {
+    vertical-align: middle;
+    text-align: center;
+    height: auto;
+}
+    td a {
+        padding: 15px 0px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    td:first-child {
+        text-align: left;
+        padding: 0px 10px;
+    }
+
+    td:last-child {
+        padding: 0px 10px;
+    }
+
+#th-name { width: 55%; }
+#th-size { width: 25%; }
+#th-action { width: 20%; }
+
+#th-name, #th-size, #th-action {
+    text-align: center;
+}
+
+a {
+    color: var(--primary);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.download-btn {
+    background: #27ae60;
+    color: #ffffff;
+    padding: 0px 16px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    display: inline-flex;
+    align-items: center;
+    height: 38px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+    .download-btn:hover {
+        background: #219a52;
+    }
+
+    .download-btn:active {
+        background: #198042;
+        color: #c8c8c8;
+        transform: translateY(2px);
+        box-shadow: 0px 0px 4px #00000033;
+    }
+
+.icon {
+    font-size: 1.3em;
+    height: 26px;
+    width: 30px;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.size {
+    color: var(--text-light);
+    font-family: 'Roboto Mono', monospace, Arial, Helvetica, sans-serif;
+    font-size: 0.95em;
+}
+
+.theme-icon {
+    display: inline-block;
+    line-height: 1;
+}
+
+.theme-icon.theme-animate {
+    display: inline-block;
+    animation: theme-anim var(--anim-duration) ease-in-out;
+    overflow: hidden;
+    will-change: transform, opacity;
+}
+
+@keyframes theme-anim {
+    0% {
+        opacity: 1;
+        transform: translateY(0px) scale(1);
+    }
+    50% {
+        opacity: 0;
+        transform: translateY(50px) scale(0.5);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0px) scale(1);
+    }
+}
+
+/* Media query for responsive design on smartphones */
+@media (max-width: 625px) {
+    :root {
+        font-size: 14px;
+    }
+
+    body {
+        padding: 0px;
+        padding-bottom: 200px;
+        overflow-x: hidden;
+    }
+
+    .container {
+        border-radius: 0px;
+    }
+
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 20px;
+    }
+
+    .header-actions {
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .logout-btn {
+        padding: 10px 15px;
+    }
+
+    .breadcrumb {
+        padding: 8px 20px;
+    }
+
+    .download-btn {
+        height: 30px;
+        padding: 6px 10px;
+    }
+
+    .icon {
+        font-size: 1.1em;
+    }
+}

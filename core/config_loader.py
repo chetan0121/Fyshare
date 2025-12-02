@@ -1,0 +1,118 @@
+import json
+from pathlib import Path
+
+# Custom Exception
+class ConfigError(Exception): pass
+
+# Get Configuration
+def get_config(path):
+    CONFIG_PATH = Path(path)
+    if not CONFIG_PATH.exists():
+        raise ConfigError("config.json file not found!")
+
+    try:
+        with CONFIG_PATH.open("r") as f:
+            config = json.load(f)
+    except json.JSONDecodeError:
+        raise ConfigError("invalid code in config.json")
+    
+    return config
+
+def update_json(path, update_func):
+    path = Path(path)
+    temp_path = path.with_suffix(".tmp")
+
+    # 1. Load original JSON
+    with path.open("r") as f:
+        data = json.load(f)
+
+    # 2. Update data using callback safely
+    update_func(data)
+
+    # 3. Write to temp file
+    with temp_path.open("w") as f:
+        json.dump(data, f, indent=4)
+
+    # 4. Replace original file atomically
+    temp_path.replace(path)
+
+# Normalize value types of config
+def normalize_config(config) -> dict:
+    try:
+        CONFIG = {
+            # Root directory served by the server
+            "root_directory": str(config["root_directory"]),       
+
+            # Maximum number of users allowed to access the server                 
+            "max_users": int(config["max_users"]),  
+
+            # Automatically stop server after this many minutes of inactivity                                
+            "idle_timeout_m": int(config["idle_timeout_minutes"]),   
+
+            # Server refresh/update interval in seconds              
+            "refresh_time_s": float(config["refresh_time_seconds"]),       
+
+            # Allowed failed attempts per IP before cooldown         
+            "max_attempts": int(config["max_attempts_per_ip"]),  
+
+            # Cooldown duration for an IP after exceeding "max_attempts"                
+            "cooldown_s": int(config["cooldown_seconds"]),           
+
+            # Total allowed attempts before IP is blocked               
+            "max_total_attempts": int(config["max_total_attempts_per_ip"]),         
+
+            # Duration of an IP remains blocked (after reaching "max_total_attempts")
+            "block_time_m": int(config["block_time_minutes"]),                      
+
+            # Time in minutes, before old attempts are cleaned up
+            "cleanup_timeout_m": int(config["cleanup_timeout_minutes"]),            
+
+            # Cache duration for static files (HTML, CSS, etc...)
+            "cache_time_out_s": float(config["default_cache_time_out_seconds"])     
+        }
+    except ValueError:
+        raise ConfigError(f"invalid keys in config")
+
+    return CONFIG
+
+# Verify config values
+def check_config(CONFIG) -> None:
+    if CONFIG['max_users'] <= 0 or CONFIG['max_users'] > 100:
+        raise ConfigError("'max_users' must be a natural number from 1 to 100")
+
+    if CONFIG['idle_timeout_m'] < 1 or CONFIG['idle_timeout_m'] > 1440:
+        raise ConfigError("'idle_timeout_minutes' must be between 1 and 1440 minutes")
+
+    if CONFIG['refresh_time_s'] <= 0 or CONFIG['refresh_time_s'] > 30:
+        raise ConfigError("'refresh_time_seconds' must be between 0 and 30 seconds (excluding 0)")
+
+    if CONFIG['max_attempts'] < 1 or CONFIG['max_attempts'] >= CONFIG['max_total_attempts']:
+        raise ConfigError("invalid 'max_attempts', it must be between 1 and 'max_total_attempts'")
+    
+    if CONFIG['max_total_attempts'] > 50:
+        raise ConfigError("'max_total_attempts_per_ip' can't be more than 50 numbers")
+
+    if CONFIG['cooldown_s'] < 0 or CONFIG['cooldown_s'] >= CONFIG['block_time_m']*60:
+        raise ConfigError("invalid 'cooldown_seconds', it must be between 0 and 'block_time_minutes'")
+    
+    if CONFIG['block_time_m'] > CONFIG['cleanup_timeout_m']:
+        raise ConfigError("'block_time_minutes' can't be more than 'cleanup_timeout_minutes'")
+    
+    if CONFIG['cleanup_timeout_m'] < 10 or CONFIG['cleanup_timeout_m'] > 120:
+        raise ConfigError("'cleanup_timeout_minutes' must be between 10 and 120 minutes")
+
+    if CONFIG['cache_time_out_s'] < 0 or CONFIG['cache_time_out_s'] > 86400:
+        raise ConfigError("'default_cache_time_out_seconds' must be between 0 and 86400")
+
+
+# Load config (Normalize, verify and return as dict)
+def load_config(config_path) -> dict:
+    try:    
+        raw_config = get_config(config_path)
+        CONFIG = normalize_config(raw_config)
+        check_config(CONFIG)
+    except ConfigError:
+        raise 
+
+    return dict(CONFIG)
+    

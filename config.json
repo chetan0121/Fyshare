@@ -1,0 +1,12 @@
+{
+  "root_directory": "~",
+  "max_users": 1,
+  "idle_timeout_minutes": 5,
+  "refresh_time_seconds": 2,
+  "max_attempts_per_ip": 5,
+  "max_total_attempts_per_ip": 15,
+  "cooldown_seconds": 60,
+  "block_time_minutes": 5,
+  "cleanup_timeout_minutes": 15,
+  "default_cache_time_out_seconds": "1800"
+}

@@ -1,0 +1,17 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs & temp
+logs
+*.log
+temp/
+tmp/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# IDE (optional, remove if you don't use them)
+.vscode/
+.idea/
