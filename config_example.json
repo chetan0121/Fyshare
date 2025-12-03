@@ -1,8 +1,8 @@
 {
-  "root_directory": "%DEFAULT%",
+  "root_directory": "~",
   "max_users": 1,
   "idle_timeout_minutes": 5,
-  "refresh_time_seconds": 2,
+  "refresh_time_seconds": 1,
   "max_attempts_per_ip": 5,
   "max_total_attempts_per_ip": 15,
   "cooldown_seconds": 60,
