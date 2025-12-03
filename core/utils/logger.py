@@ -11,10 +11,7 @@ def set_logger(file):
         level=logging.INFO,
         format='%(asctime)s | %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
-        filename=str(log_file),
-        filemode='a',
         force=True,  # Removes previous handlers
-        
         handlers=[
             RotatingFileHandler(
                 str(log_file),

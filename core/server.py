@@ -15,7 +15,22 @@ def init_server():
         ServerState.Server = socketserver.ThreadingTCPServer(("", ServerState.PORT), FileHandler)
     except OSError as e:
         logger.print_error(f"Server: Failed to bind to port[{ServerState.PORT}], Please try again.")
-        raise e
+        print("  Details:", e)
+
+def shutdown_server(msg=""):
+    logger.print_info("Shutting down the server...")
+    logger.log_info("Shutting down the server...")
+
+    if ServerState.Server:
+        ServerState.Server.server_close()
+        ServerState.Server = None   
+
+    # Stop server loop
+    ServerState.is_running = False
+
+    # Print and log the msg
+    logger.print_info(f"\n{msg}", info_tag=None)
+    logger.log_info(msg)    
 
 def run_server():
     ServerState.is_running = True
@@ -57,27 +72,3 @@ def run_server():
         if inactivity and (current_time - inactivity) > idle_timeout_s:
             minutePrint = 'minute' if idle_timeout_m == 1 else 'minutes'
             shutdown_server(f"- Server closed successfully after {idle_timeout_m} {minutePrint} of inactivity\n")
-
-def shutdown_server(msg=""):
-    logger.print_info("Shutting down the server...")
-    logger.log_info("Shutting down the server...")
-
-    if ServerState.Server:
-        try:
-            # Close server socket
-            ServerState.Server.server_close()
-            
-            # Print and log the msg
-            logger.print_info(f"\n{msg}", info_tag=None)
-            logger.log_info(msg)
-
-        except Exception as e:
-            # Print and log the exception as error
-            logger.print_error(f"Server shutdown: {e}\n")
-            logger.log_error(f"Server shutdown: {e}\n")
-
-        finally:
-            ServerState.Server = None    
-
-    # Stop server loop
-    ServerState.is_running = False        

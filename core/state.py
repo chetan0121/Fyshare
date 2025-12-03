@@ -69,7 +69,7 @@ class FileState:
         try:
             opt = int(input("\nEnter option => "))
         except ValueError:
-            raise StateError("ValueError: Invalid input")
+            raise StateError("Invalid input")
         
         # Handle user input
         if opt == 2:
@@ -104,10 +104,7 @@ class FileState:
         path = helper.refine_path(path)
 
         # Path validation
-        try:
-            helper.is_valid_dir(path)
-        except helper.UtilityError as e:
-            raise StateError(str(e))
+        helper.is_valid_dir(path)
         
         try:
             with (path / 'login.html').open('r', encoding="utf-8") as f:
@@ -121,10 +118,7 @@ class FileState:
         path = helper.refine_path(path)
 
         # Path validation
-        try:
-            helper.is_valid_dir(path)
-        except helper.UtilityError as e:
-            raise StateError(str(e))
+        helper.is_valid_dir(path)
         
         FileState.STATIC_DIR = path
 
@@ -138,7 +132,7 @@ class FileState:
         if opt == "y" or opt == "yes":
             helper.copy_file(source_path, curr_config_path)
             print(f"\nConfig successfully reset")
-            print(f"- '{curr_config_path.name}' restored from '{source_path.name}'")
+            print(f"- '{curr_config_path.name}' restored from '{source_path.name}'.")
 
         elif opt == "n" or opt == "no":
             print(f"\nReset cancelled")
