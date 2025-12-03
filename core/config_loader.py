@@ -1,40 +1,7 @@
-import json
-from pathlib import Path
+from core.utils import helper
 
 # Custom Exception
 class ConfigError(Exception): pass
-
-# Get Configuration
-def get_config(path):
-    CONFIG_PATH = Path(path)
-    if not CONFIG_PATH.exists():
-        raise ConfigError("config.json file not found!")
-
-    try:
-        with CONFIG_PATH.open("r") as f:
-            config = json.load(f)
-    except json.JSONDecodeError:
-        raise ConfigError("invalid code in config.json")
-    
-    return config
-
-def update_json(path, update_func):
-    path = Path(path)
-    temp_path = path.with_suffix(".tmp")
-
-    # 1. Load original JSON
-    with path.open("r") as f:
-        data = json.load(f)
-
-    # 2. Update data using callback safely
-    update_func(data)
-
-    # 3. Write to temp file
-    with temp_path.open("w") as f:
-        json.dump(data, f, indent=4)
-
-    # 4. Replace original file atomically
-    temp_path.replace(path)
 
 # Normalize value types of config
 def normalize_config(config) -> dict:
@@ -107,12 +74,12 @@ def check_config(CONFIG) -> None:
 
 # Load config (Normalize, verify and return as dict)
 def load_config(config_path) -> dict:
-    try:    
-        raw_config = get_config(config_path)
+    try:
+        raw_config = helper.get_json(config_path)
         CONFIG = normalize_config(raw_config)
         check_config(CONFIG)
-    except ConfigError:
-        raise 
+    except helper.UtilityError as e:
+        raise ConfigError(str(e)) from e
 
     return dict(CONFIG)
     

@@ -5,33 +5,25 @@ from logging.handlers import RotatingFileHandler
 
 def set_logger(file):
     log_file = Path(file)
-    log_file.parent.mkdir(exist_ok=True)
-    root_logger = logging.getLogger()
+    log_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Logs config
     logging.basicConfig(
-        filename=log_file,
         level=logging.INFO,
         format='%(asctime)s | %(message)s',
-        datefmt = f"%Y-%m-%d %H:%M:%S"
+        datefmt='%Y-%m-%d %H:%M:%S',
+        filename=str(log_file),
+        filemode='a',
+        force=True,  # Removes previous handlers
+        
+        handlers=[
+            RotatingFileHandler(
+                str(log_file),
+                maxBytes=1_000_000,
+                backupCount=3,
+                encoding='utf-8'
+            )
+        ]
     )
-
-    # Handle logging files
-    file_handler = RotatingFileHandler(
-        log_file,
-        maxBytes=1_000_000,
-        backupCount=3,
-        encoding='utf-8'
-    )
-
-    # Format for Logging
-    formatter = logging.Formatter(
-        fmt = '%(asctime)s | %(message)s',
-        datefmt = f'%Y-%m-%d %H:%M:%S'
-    )
-    file_handler.setFormatter(formatter)
-    root_logger.addHandler(file_handler)
-
 
 # To check if its int or not
 def __is_int(s):
@@ -42,11 +34,15 @@ def __is_int(s):
         return False
 
 # Print text with optional ANSI escape codes
-def print_custom(txt="\n", *ansiCode, end="\n"):
-    ansiCode = [str(a) for a in ansiCode if isinstance(int, a) or __is_int(a)]
-    if ansiCode:
-        ansiCodes = "\033[" + ";".join(ansiCode) + "m"
-        msg = str(ansiCodes + txt + "\033[0m")
+def print_custom(txt="", *ansiCodes, end="\n"):
+    clean_codes = []
+    for a in ansiCodes:
+        if isinstance(a, int) or __is_int(a):
+            clean_codes.append(str(a))
+
+    if clean_codes:
+        prefix = "\033[" + ";".join(clean_codes) + "m"
+        msg = str(prefix + txt + "\033[0m")
     else:
         msg = txt
         
@@ -61,7 +57,7 @@ def print_error(*msg, sep=" | ", st="\n", end="\n", bright=True, bold=False):
     if bold:
         codes.append(1)
 
-    print_custom(final_msg, ansiCode=codes, end=end)
+    print_custom(final_msg, *codes, end=end)
 
 def print_warning(*msg, sep=" | ", st="\n", end="\n", bright=True, bold=False):
     message = sep.join(msg)
@@ -71,7 +67,7 @@ def print_warning(*msg, sep=" | ", st="\n", end="\n", bright=True, bold=False):
     if bold:
         codes.append(1) # appending 1 to make the txt bold
 
-    print_custom(final_msg, ansiCode=codes, end=end)
+    print_custom(final_msg, *codes, end=end)
 
 def print_info(*msg, sep=" | ", st="\n", end="\n", info_tag=True, bright=True, bold=False):
     message = sep.join(msg)
@@ -84,7 +80,7 @@ def print_info(*msg, sep=" | ", st="\n", end="\n", info_tag=True, bright=True, b
     if bold:
         codes.append(1) # appending 1 to make the txt bold
 
-    print_custom(final_msg, ansiCode=codes, end=end)
+    print_custom(final_msg, *codes, end=end)
 
 # ========= Logging functions =========
 def log_error(*msg, sep=" | ", st=""):

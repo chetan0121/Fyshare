@@ -1,5 +1,4 @@
-import threading
-import time
+import time, threading
 from core.utils import logger
 from core.state import FileState
 
@@ -41,16 +40,19 @@ class SessionManager:
                 data['count'] += 1
                 data['last_time'] = current_time
 
+                block_time = FileState.CONFIG['block_time_m']
+                cooldown_s = FileState.CONFIG['cooldown_s']
+
                 if data['count'] >= FileState.CONFIG['max_total_attempts']:
-                    data['blocked_until'] = current_time + FileState.CONFIG['block_time_m'] * 60
-                    logger.print_warning(f"Blocked User[{ip}] for {FileState.CONFIG['block_time_m']} minutes due to excessive attempts.\n")
-                    logger.log_warning(f"Blocked User[{ip}] for {FileState.CONFIG['block_time_m']} minutes", "excessive attempts")
+                    data['blocked_until'] = current_time + block_time * 60
+                    logger.print_warning(f"Blocked User[{ip}] for {block_time} minutes due to excessive attempts.\n")
+                    logger.log_warning(f"- Blocked User[{ip}] for {block_time} minutes", "excessive attempts")
                     return
 
                 if data['count'] % FileState.CONFIG['max_attempts'] == 0:
-                    data['cool_until'] = current_time + FileState.CONFIG['cooldown_s']
-                    logger.print_info(f"User[{ip}] is in cool-down for {FileState.CONFIG['cooldown_s']} seconds due to excessive attempts.\n")
-                    logger.log_info(f"- User[{ip}] is in cool-down for {FileState.CONFIG['cooldown_s']} seconds")
+                    data['cool_until'] = current_time + cooldown_s
+                    logger.print_info(f"User[{ip}] is in cool-down for {cooldown_s} seconds due to excessive attempts.\n")
+                    logger.log_info(f"- User[{ip}] is in cool-down for {cooldown_s} seconds")
                     return
 
 
