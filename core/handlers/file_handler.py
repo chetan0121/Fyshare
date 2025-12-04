@@ -1,11 +1,12 @@
 from html import escape
 import time
 import http.server
-import re, os
+import os
 from pathlib import Path
 from urllib.parse import parse_qs, quote
-from core import credentials
+from core import credentials, server
 from core.utils import logger, helper
+from core.utils.security import Security
 from core.state import FileState, ServerState
 
 class FileHandler(http.server.SimpleHTTPRequestHandler):
@@ -13,32 +14,13 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
 
-    def get_session_token(self):
-        cookies = self.headers.get('Cookie', '')
-        for cookie in cookies.split(';'):
-            cookie = cookie.strip()
-            if cookie.startswith('session_token='):
-                return cookie.split('=', 1)[1].strip()
-        return None
-
-    def send_security_headers(self, cache_time = 0):
-        self.send_header("X-Frame-Options", "DENY")
-        self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Content-Security-Policy', "default-src 'self';")
-        self.send_header('Referrer-Policy', 'no-referrer')
-        if cache_time > 0:
-            self.send_header('Cache-Control', f'max-age={cache_time}')
-        else:
-            self.send_header('Cache-Control', 'no-store, must-revalidate')
-
     def do_GET(self):
         client_ip = self.client_address[0]
         current_time = time.monotonic()
-        logger.print_info("We are doing do_GET()")
 
         if ServerState.SESSION_MANAGER.is_blocked(client_ip, current_time):
             self.send_response(403, "Access Denied")
-            self.send_security_headers()
+            Security.send_security_headers(self)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(b'<h1>403 Forbidden</h1><p>Blocked due to excessive attempts. Try again later.</p>')
@@ -49,24 +31,26 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             if favicon_path.exists():
                 with favicon_path.open('rb') as f:
                     self.send_response(200)
-                    self.send_security_headers(cache_time=FileState.CONFIG['cache_time_out_s'])
+                    Security.send_security_headers(self, cache_time=FileState.CONFIG['cache_time_out_s'])
                     self.send_header('Content-Type', 'image/x-icon')
                     self.end_headers()
                     self.wfile.write(f.read())
+                return    
             else:
                 self.send_error(404, "Favicon not found")
                 return
 
         if self.path == '/logout':
-            session_token = self.get_session_token()
-            if session_token and ServerState.SESSION_MANAGER.get_session(session_token):
-                client_ip = ServerState.SESSION_MANAGER.get_session(session_token)['ip']
+            session_token = Security.get_session_token(self)
+            session = ServerState.SESSION_MANAGER.get_session(session_token)
+            if session_token and session:
+                client_ip = session['ip']
                 logger.print_info(f"User[{client_ip}] logged-out.\n")
                 logger.log_info(f"- User[{client_ip}] logged-out")
                 ServerState.SESSION_MANAGER.remove_session(session_token)
 
             self.send_response(302)
-            self.send_security_headers()
+            Security.send_security_headers(self)
             self.send_header('Location', '/')
             self.send_header('Set-Cookie', 'session_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/')
             self.end_headers()
@@ -94,7 +78,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
 
                 file_size = file_path.stat().st_size
                 self.send_response(200)
-                self.send_security_headers(cache_time=FileState.CONFIG['cache_time_out_s'])
+                Security.send_security_headers(self, cache_time=FileState.CONFIG['cache_time_out_s'])
                 self.send_header('Content-Type', content_type)
                 self.send_header('Content-Length', str(file_size))
                 self.end_headers()
@@ -117,12 +101,12 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path.endswith('.html'):
-            file_path = Path(self.translate_path(self.path))
+            file_path = self.translate_path(self.path)
             if file_path.exists() and file_path.is_file():
                 try:
                     file_size = file_path.stat().st_size
                     self.send_response(200)
-                    self.send_security_headers(cache_time=FileState.CONFIG['cache_time_out_s'])
+                    Security.send_security_headers(self, cache_time=FileState.CONFIG['cache_time_out_s'])
                     self.send_header('Content-Type', 'text/html')
                     self.send_header('Content-Length', str(file_size))
                     self.end_headers()
@@ -143,12 +127,11 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         client_ip = self.client_address[0]
         current_time = time.monotonic()
-        logger.print_info("We are doing do_POST()")
 
         ServerState.SESSION_MANAGER.clean_expired_attempts()
         if ServerState.SESSION_MANAGER.is_blocked(client_ip, current_time):
             self.send_response(403)
-            self.send_security_headers()
+            Security.send_security_headers(self)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(b'<h1>403 Forbidden</h1><p>Blocked due to excessive attempts. Try again later.</p>')
@@ -171,26 +154,25 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_login_page(message="Invalid input values.")
             return
 
-        if not self.validate_credentials(submitted_username, submitted_otp, timeout_seconds):
+        if not Security.validate_credentials(self, submitted_username, submitted_otp, timeout_seconds):
             self.send_login_page(message="Invalid input. Please check your username and OTP format.")
             return
 
         if len(ServerState.SESSION_MANAGER.sessions) >= FileState.CONFIG['max_users']:
             self.send_login_page(message="Server busy—too many users. Try again later.")
             return
-
         
         if submitted_username == ServerState.USERNAME and submitted_otp == ServerState.OTP:
             session_token = credentials.generate_session_token()
             ServerState.SESSION_MANAGER.add_session(session_token, client_ip, current_time + timeout_seconds)
 
             self.send_response(302)
-            self.send_security_headers()
-            self.send_header('Location', self.path)
+            Security.send_security_headers(self)
+            self.send_header('Location', '/')
             self.send_header('Set-Cookie', f'session_token={session_token}; Path=/; HttpOnly; Max-Age={timeout_seconds}; SameSite=Strict')
             self.end_headers()
 
-            logger.print_info(f"User[{client_ip}] logged-in\n", f"Timeout: {timeout_seconds}")
+            logger.print_info(f"User[{client_ip}] logged-in")
             logger.log_info(f"- User[{client_ip}] logged-in")
         else:
             ServerState.SESSION_MANAGER.update_attempts(client_ip, current_time)
@@ -200,33 +182,15 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
 
             attempts = ServerState.GLOBAL_TOTAL_ATTEMPTS
             if attempts > FileState.CONFIG['max_users']*100:
-                logger.print_warning(f"Maximum login attempts exceeded: {attempts}")
-                logger.print_info("Shutting down the server...\n")
-                logger.log_warning(f"Security shutdown triggered after {attempts} rapid login attempts")
-                exit(1)
+                server.shutdown_server(f"- Security shutdown triggered after {attempts} rapid login attempts")
 
-            if attempts % FileState.CONFIG['max_users']*10 == 0:
-                with ServerState.credentials_lock:
-                    ServerState.LAST_UPDATED_CRED = None
-                    
+            if attempts % (FileState.CONFIG['max_users']*10) == 0:
                 credentials.generate_credentials("Too many failed attempts on server")
 
             self.send_login_page(message="Invalid username or OTP.")
 
-    def validate_credentials(self, username, otp, timeout):
-        # Validate username: 6–20 alphanumeric characters
-        is_valid_username = bool(re.fullmatch(r'[a-zA-Z0-9]{6,20}', username))
-
-        # Validate OTP: exactly 6 digits
-        is_valid_otp = bool(re.fullmatch(r'\d{6}', otp))
-
-        # Validate timeout: must be between min and max allowed seconds
-        is_valid_timeout = bool((ServerState.OPTIONS[0][0]*60) <= timeout <= (ServerState.OPTIONS[-1][0]*60))
-
-        return is_valid_username and is_valid_otp and is_valid_timeout
-
     def check_authentication(self):
-        session_token = self.get_session_token()
+        session_token = Security.get_session_token(self)
         session_data = ServerState.SESSION_MANAGER.get_session(session_token)
 
         if not session_token or not session_data:
@@ -249,7 +213,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             html = html.replace('{{options}}', options_html)
             html = html.replace('{{message}}', message or '')
             self.send_response(200)
-            self.send_security_headers()
+            Security.send_security_headers(self)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(html.encode('utf-8'))
@@ -258,14 +222,14 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             logger.print_error(f"Rendering login page: {str(e)}\n")
             logger.log_error(f"Rendering login page: {str(e)}")
 
-    def translate_path(self, path):
+    def translate_path(self, path) -> Path | None:
         path = super().translate_path(path)
         real_path = helper.refine_path(path)
         if not str(real_path).startswith(str(FileState.ROOT_DIR)):
             self.send_error(403, "Access denied")
-            return ""
+            return None
         
-        return str(real_path)
+        return real_path
 
     def list_directory(self, path):
         try:
@@ -290,7 +254,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             response = self.generate_html(file_list, displaypath)
             encoded = response.encode('utf-8')
             self.send_response(200)
-            self.send_security_headers()
+            Security.send_security_headers(self)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(encoded)))
             self.end_headers()
@@ -330,16 +294,16 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                 size = '-' if is_dir else self.format_size(entry.stat().st_size)
                 action = self.get_action_button(entry.name, is_dir)
                 table_rows += f"""
-                <tr>
-                    <td>
-                        <a href="{link_name}">
-                            <span class="icon">{icon}</span>
-                            <span>{display_name}</span>
-                        </a>
-                    </td>
-                    <td class="size">{size}</td>
-                    <td>{action}</td>
-                </tr>"""
+                    <tr>
+                        <td>
+                            <a href="{link_name}">
+                                <span class="icon">{icon}</span>
+                                <span>{display_name}</span>
+                            </a>
+                        </td>
+                        <td class="size">{size}</td>
+                        <td>{action}</td>
+                    </tr>"""
             except Exception as e:
                 logger.print_error(f"\nProcessing {entry.name}: {str(e)}\n")
                 continue
