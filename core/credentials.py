@@ -21,10 +21,11 @@ def generate_otp(length=6) -> str:
 
 def generate_credentials(message = str("")):
     with ServerState.credentials_lock:
+        ServerState.LAST_UPDATED_CRED = None
         ServerState.USERNAME = generate_username()
         ServerState.OTP = generate_otp()
         
-        logger.print_custom(f"\n\n{message}", 33)
+        logger.print_custom(f"\n\n{message}", 93)
         logger.print_custom("---------------------------------------------", 1)
         logger.print_custom(f"\nServing directory: \"{FileState.ROOT_DIR}\"", 1)
         logger.print_custom(f"Open in browser: http://{ServerState.LOCAL_IP}:{ServerState.PORT}", 1)
@@ -33,7 +34,7 @@ def generate_credentials(message = str("")):
         print(f"   - Username  : {ServerState.USERNAME}")
         print(f"   - OTP       : {ServerState.OTP}")
         print(f"   - Max users : {FileState.CONFIG['max_users']} Allowed")
-        print(f"   - Time Out  : {FileState.CONFIG['idle_timeout_m']} {'minute' if FileState.CONFIG['idle_timeout_m'] == 1 else 'minutes'} of inactivity")
+        print(f"   - Time Out  : {FileState.CONFIG['idle_timeout_m']} minutes")
         logger.print_custom("\n---------------------------------------------", 1)
 
-        logger.log_info(f"Generated New Credentials", f"Reason: {message or 'Server just started'}")
+        logger.log_info(f"Generated New Credentials", f"Reason: {message or "None"}")

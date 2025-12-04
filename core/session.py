@@ -20,7 +20,8 @@ class SessionManager:
 
     def get_session(self, token):
         with self.lock:
-            return self.sessions.get(token)
+            session = self.sessions.get(token)
+            return dict(session) if session else None
 
     def clean_expired_sessions(self):
         with self.lock:

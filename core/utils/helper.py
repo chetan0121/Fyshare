@@ -20,8 +20,12 @@ def get_local_ip() -> str:
 
 # Refine path
 def refine_path(path):
-   path = str(path).strip()
-   return Path(path).expanduser().resolve()
+    path_str = str(path).strip()
+    if not path_str:
+        raise UtilityError("Path cannot be empty")
+
+    expanded = os.path.expandvars(path_str)
+    return Path(expanded).expanduser().resolve()
 
 # Check if its valid directory
 def is_valid_dir(path: Path | str):
@@ -33,8 +37,7 @@ def is_valid_dir(path: Path | str):
         UtilityError - with clear message on any failure
     """
     # Convert string to Path
-    if isinstance(path, str):
-        path = Path(path)
+    path = Path(path)
 
     # Empty or whitespace-only path
     if not path or str(path).strip() == "":
@@ -42,19 +45,19 @@ def is_valid_dir(path: Path | str):
 
     # Doesn't exist
     if not path.exists():
-        raise UtilityError(f"Path does not exist: '{path}'")
+        raise UtilityError(f"Path '{path}' does not exist")
 
     # Exists but is a file
     if path.is_file():
-        raise UtilityError(f"Path is a file, not a directory: '{path}'")
+        raise UtilityError(f"Path '{path}' is a file, not a directory")
 
     # Exists but is not a directory
     if not path.is_dir():
-        raise UtilityError(f"Path is not a directory: '{path}'")
+        raise UtilityError(f"Path '{path}' is not a directory")
 
     # If no read permission
     if not os.access(path, os.R_OK):
-        raise UtilityError(f"No read permission for directory: '{path}'")
+        raise UtilityError(f"No read permission for directory '{path}'")
 
 # Get Configuration
 def get_json(path):

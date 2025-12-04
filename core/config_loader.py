@@ -8,7 +8,7 @@ def normalize_config(config) -> dict:
     try:
         CONFIG = {
             # Root directory served by the server
-            "root_directory": str(config["root_directory"]),       
+            "root_directory": str(config["root_directory"]),
 
             # Maximum number of users allowed to access the server                 
             "max_users": int(config["max_users"]),  
@@ -44,14 +44,14 @@ def normalize_config(config) -> dict:
 
 # Verify config values
 def check_config(CONFIG) -> None:
-    if CONFIG['max_users'] <= 0 or CONFIG['max_users'] > 100:
+    if CONFIG['max_users'] < 1 or CONFIG['max_users'] > 100:
         raise ConfigError("'max_users' must be a natural number from 1 to 100")
 
     if CONFIG['idle_timeout_m'] < 1 or CONFIG['idle_timeout_m'] > 1440:
         raise ConfigError("'idle_timeout_minutes' must be between 1 and 1440 minutes")
 
-    if CONFIG['refresh_time_s'] <= 0 or CONFIG['refresh_time_s'] > 30:
-        raise ConfigError("'refresh_time_seconds' must be between 0 and 30 seconds (excluding 0)")
+    if CONFIG['refresh_time_s'] <= 0 or CONFIG['refresh_time_s'] > 5:
+        raise ConfigError("'refresh_time_seconds' must be between 0 and 5 seconds (excluding 0)")
 
     if CONFIG['max_attempts'] < 1 or CONFIG['max_attempts'] >= CONFIG['max_total_attempts']:
         raise ConfigError("invalid 'max_attempts', it must be between 1 and 'max_total_attempts'")

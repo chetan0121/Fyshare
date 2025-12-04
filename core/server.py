@@ -1,3 +1,4 @@
+import threading
 import time
 import socketserver
 from core import credentials
@@ -18,19 +19,23 @@ def init_server():
         print("  Details:", e)
 
 def shutdown_server(msg=""):
-    logger.print_info("Shutting down the server...")
-    logger.log_info("Shutting down the server...")
-
     if ServerState.Server:
-        ServerState.Server.server_close()
-        ServerState.Server = None   
+        try:
+            ServerState.Server.server_close()
+            ServerState.is_running = False
 
-    # Stop server loop
-    ServerState.is_running = False
+            # Wait for all threads to finish
+            for thread in threading.enumerate():
+                if thread is not threading.current_thread():
+                    thread.join()
+        except Exception as e:
+            logger.print_error(f"During shutdown: {e}")
+            logger.log_error(f"During shutdown: {e}")
+            return
 
     # Print and log the msg
-    logger.print_info(f"\n{msg}", info_tag=None)
-    logger.log_info(msg)    
+    logger.print_info(f"{msg}", info_tag=None)
+    logger.log_info(f"{msg}\n")
 
 def run_server():
     ServerState.is_running = True
@@ -56,7 +61,6 @@ def run_server():
         if last_updated is None:
             last_updated = current_time
         elif current_time - last_updated > cleanup_time_s:
-            last_updated = current_time
             credentials.generate_credentials("Old Credentials expired!")
 
         # Handle inactivity timeout
@@ -71,4 +75,5 @@ def run_server():
         # Shutdown server automatically after idle-timeout
         if inactivity and (current_time - inactivity) > idle_timeout_s:
             minutePrint = 'minute' if idle_timeout_m == 1 else 'minutes'
-            shutdown_server(f"- Server closed successfully after {idle_timeout_m} {minutePrint} of inactivity\n")
+            shutdown_server(f"- Server closed successfully after {idle_timeout_m} {minutePrint} of inactivity")
+

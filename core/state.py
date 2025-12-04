@@ -55,15 +55,12 @@ class FileState:
 
     # Must set CONFIG before using this
     def set_root_path():
-        if not FileState.CONFIG:
-            raise StateError("Config not found")
-
         saved_path = helper.refine_path(FileState.CONFIG["root_directory"])
 
         # === Path selection by User ===
         print("\nSelect path to host:")
-        print(f"1. Default ('{saved_path}')")
-        print( "2. Set path")
+        print(f"1. Default ({saved_path})")
+        print( "2. Set new path")
 
         # Handle invalid input
         try:
@@ -126,10 +123,10 @@ class FileState:
         print("\n\nDo you want to reset the current config to default?")
         opt = input(" (y/n) => ").strip().lower()
 
-        curr_config_path = helper.refine_path(FileState.config_path)
-        source_path = curr_config_path.with_name("config_example.json")
+        curr_config_path = FileState.config_path
 
         if opt == "y" or opt == "yes":
+            source_path = curr_config_path.with_name("config_example.json")
             helper.copy_file(source_path, curr_config_path)
             print(f"\nConfig successfully reset")
             print(f"- '{curr_config_path.name}' restored from '{source_path.name}'.")
