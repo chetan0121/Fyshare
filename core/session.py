@@ -1,13 +1,12 @@
-import time, threading
-from core.utils import logger
-from core.state import FileState
+import time
+from .utils import logger
+from .states import FileState, ServerState
 
-# Session Manage class (Handles users/session)
 class SessionManager:
     def __init__(self):
         self.sessions = {}      # {token: {'ip': ip, 'expiry': timestamp}}
         self.attempts = {}      # {ip: {'count': int, 'last_time': time, 'cool_until: time', 'blocked_until': time}}
-        self.lock = threading.Lock()
+        self.lock = ServerState.session_lock
 
     def add_session(self, token, ip, expiry):
         with self.lock:

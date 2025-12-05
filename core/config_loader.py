@@ -1,4 +1,5 @@
-from core.utils import helper
+from .utils import helper, logger
+from .states import FileState
 
 # Custom Exception
 class ConfigError(Exception): pass
@@ -78,8 +79,39 @@ def load_config(config_path) -> dict:
         raw_config = helper.get_json(config_path)
         CONFIG = normalize_config(raw_config)
         check_config(CONFIG)
-    except helper.UtilityError as e:
-        raise ConfigError(str(e)) from e
+    except (ConfigError, helper.UtilityError) as e:
+        logger.print_error(str(e))
+        return None
 
-    return dict(CONFIG)
+    return CONFIG
+
+def backup_config():
+        logger.print_info("Do you want to reset the current config to default?", end="\n")
+        try:
+            opt = input("Enter (y/n) => ").strip().lower()
+        except KeyboardInterrupt:
+            opt = "n"    
+
+        curr_config_path = FileState.config_path
+
+        if opt == "y" or opt == "yes":
+            source_path = curr_config_path.with_name("config_example.json")
+
+            try:
+                helper.copy_file(source_path, curr_config_path)
+            except helper.UtilityError as e:
+                logger.print_error(str(e))
+                return False
+
+            logger.print_info(f"Config-file '{curr_config_path.name}' successfully restored from '{source_path.name}'", end="\n")
+            return True
+
+        elif opt == "n" or opt == "no":
+            logger.print_info(f"Reset cancelled by user, Current config '{curr_config_path.name}' was kept unchanged.", end="\n")
+            logger.print_error("Failed to recover config: Reset cancelled")
+            return False
+        
+        else:
+            logger.print_error("Failed to recover config: Invalid input!")
+            return False
     

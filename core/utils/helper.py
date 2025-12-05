@@ -7,9 +7,9 @@ class UtilityError(Exception): pass
 
 def get_local_ip() -> str:
     # Connect to a public DNS server to discover outgoing interface
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as socket_conn:
-        socket_conn.connect(("8.8.8.8", 80))
-        local_ip = str(socket_conn.getsockname()[0])
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s_conn:
+        s_conn.connect(("8.8.8.8", 80))
+        local_ip = str(s_conn.getsockname()[0])
         
         # Verify it's not a localhost
         if not local_ip.startswith("127."):
@@ -115,26 +115,28 @@ def copy_file(source, destination):
     """
     Creates a NEW file at 'destination' with:
         - Same content as 'source'
-        - Current date/time as creation & modification time
+        - Save with current date/time as creation-time
     """
     src = refine_path(source)
     dst = refine_path(destination)
 
+    # Check is src file doesn't exist
     if not src.is_file():
-        raise UtilityError(f"Source is not a file: '{src}'")
+        raise UtilityError(f"Source file not found: '{src}'")
     
-    # If destination is a directory → use source's filename inside it
+    # If destination is a directory, use source's filename inside it
     if dst.is_dir():
         dst = dst / src.name
     
     # Ensure parent directories exist
     dst.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Read from source, write to destination → this gives fresh timestamps
+
+    # Read from source
     with open(src, 'rb') as fsrc:
         content = fsrc.read()
-    
+
+    # write to destination
     with open(dst, 'wb') as fdst:
         fdst.write(content)
-        fdst.flush()             # Make sure data is written
+        fdst.flush()
     

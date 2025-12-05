@@ -1,6 +1,7 @@
+import re, time
 import http.server as http_server
-import re
-from core.state import ServerState
+from . import logger
+from ..states import ServerState
 
 class Security(http_server.SimpleHTTPRequestHandler):
     
@@ -34,6 +35,23 @@ class Security(http_server.SimpleHTTPRequestHandler):
         highest_opt = ServerState.OPTIONS[-1][0]*60
         is_valid_timeout = bool(lowest_opt <= timeout <= highest_opt)
 
-        return is_valid_username and is_valid_otp and is_valid_timeout        
+        return is_valid_username and is_valid_otp and is_valid_timeout 
+
+    def check_authentication(self):
+        session_token = Security.get_session_token(self)
+        session_data = ServerState.SESSION_MANAGER.get_session(session_token)
+
+        if not session_token or not session_data:
+            return False
+        if session_data['ip'] != self.client_address[0]:
+            logger.print_warning(f"Session-token stolen from {session_data['ip']}", "Request terminated")
+            logger.log_warning(f"Session-token stolen from User[{session_data['ip']}]", "Request terminated")
+            ServerState.SESSION_MANAGER.remove_session(session_token)
+            return False
+        if time.monotonic() >= session_data['expiry']:
+            ServerState.SESSION_MANAGER.remove_session(session_token)
+            return False
+        
+        return True       
     
     

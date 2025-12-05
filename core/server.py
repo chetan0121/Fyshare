@@ -1,40 +1,40 @@
-import threading
 import time
 import socketserver
-from core import credentials
-from core.utils import logger
-from core.state import ServerState, FileState
-from core.handlers.file_handler import FileHandler
+from . import credentials
+from .utils import logger
+from .states import ServerState, FileState
+from .handlers.file_handler import FileHandler
 
 class ServerError(Exception): pass
+
+import http.server as http_server
+class CustomServer(socketserver.ThreadingMixIn, http_server.HTTPServer):
+    daemon_threads = True
 
 def init_server():
     """
     Run this only after -> state.init_server_state()
     """
     try:
-        ServerState.Server = socketserver.ThreadingTCPServer(("", ServerState.PORT), FileHandler)
+        # ServerState.Server = socketserver.ThreadingTCPServer(("", ServerState.PORT), FileHandler)
+        ServerState.Server = CustomServer(("lol", ServerState.PORT), FileHandler)
     except OSError as e:
         logger.print_error(f"Server: Failed to bind to port[{ServerState.PORT}], Please try again.")
         print("  Details:", e)
+        exit(1)
 
 def shutdown_server(msg=""):
     if ServerState.Server:
         try:
-            ServerState.Server.server_close()
             ServerState.is_running = False
-
-            # Wait for all threads to finish
-            for thread in threading.enumerate():
-                if thread is not threading.current_thread():
-                    thread.join()
+            ServerState.Server.server_close()
         except Exception as e:
             logger.print_error(f"During shutdown: {e}")
             logger.log_error(f"During shutdown: {e}")
             return
 
     # Print and log the msg
-    logger.print_info(f"{msg}", info_tag=None)
+    logger.print_info(f"{msg}", lvl_tag=False)
     logger.log_info(f"{msg}\n")
 
 def run_server():
@@ -48,8 +48,8 @@ def run_server():
     inactivity = ServerState.INACTIVITY_START
 
     # Constant configs
-    cleanup_time_s = FileState.CONFIG['cleanup_timeout_m'] * 60
-    idle_timeout_m = FileState.CONFIG['idle_timeout_m']
+    cleanup_time_s = int(FileState.CONFIG['cleanup_timeout_m'] * 60)
+    idle_timeout_m = int(FileState.CONFIG['idle_timeout_m'])
     idle_timeout_s = idle_timeout_m * 60
 
     while ServerState.is_running:
@@ -70,7 +70,7 @@ def run_server():
         elif Session.sessions:
             inactivity = None
 
-        # Continually handle incoming requests, one at a time (return after server.timeout)
+        # Handle incoming server requests
         server.handle_request()
 
         # Shutdown server automatically after idle-timeout

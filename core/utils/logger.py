@@ -1,9 +1,10 @@
 import logging
-from sys import stdout
+import sys
 from pathlib import Path
-from logging.handlers import RotatingFileHandler
 
 def set_logger(file: Path | str):
+    from logging.handlers import RotatingFileHandler
+    
     log_file = Path(file)
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -29,7 +30,7 @@ def print_custom(txt="", *ansiCodes, end="\n"):
 
     Args:
         - txt (str): The text to print. Defaults to an empty string.
-        - *ansi_codes: Variable-length list of ANSI codes (as integers or strings)
+        - *ansi_codes: Variable-length list of ANSI codes (int/str)
                      to style the text. Example: 31 for red, 1 for bold.
         - end (str): String appended after the text. Defaults to a newline.
 
@@ -58,65 +59,97 @@ def print_custom(txt="", *ansiCodes, end="\n"):
     else:
         msg = txt
         
-    stdout.write(f"{msg}{end}")    
+    sys.stdout.write(f"{msg}{end}")    
 
-# ========= Printer functions =========
-def print_error(*msg, sep=" | ", st="\n", end="\n\n", info_tag=True, bright=True, bold=False):
-    message = sep.join(msg)
-    if info_tag:
-        message = f"[ERROR] {message}"
+def __print_level(
+    msg="", 
+    level="", 
+    st="", 
+    end="", 
+    color=37, 
+    bright=True, 
+    bold=False
+):
+    """Private Function to style txt of printers (e.g. print_error())"""
 
-    codes = [91 if bright else 31]
+    if level:
+        level.strip().upper()
+        msg = f"[{level}] {msg}"
+
+    codes = []
+    if bright:
+        codes.append(color + 60)
+    else:
+        codes.append(color)    
+
     if bold:
         codes.append(1)
 
-    print_custom(f"{st}{message}", *codes, end=end)
+    print_custom(f"{st}{msg}", *codes, end=end)
 
-def print_warning(*msg, sep=" | ", st="\n", end="\n\n", info_tag=True, bright=True, bold=False):
+
+# ========= Printer functions =========
+def print_error(*msg, sep=" | ", st="\n", end="\n\n", lvl_tag=True, bright=True, bold=False):
     message = sep.join(msg)
-    if info_tag:
-        message = f"[WARNING] {message}"
+    lvl = "Error" if lvl_tag else ""
 
-    codes = [93 if bright else 33]
-    if bold:
-        codes.append(1) # appending 1 to make the txt bold
+    __print_level(
+        message,
+        level=lvl,
+        st=st,
+        end=end,
+        color=31,
+        bright=bright,
+        bold=bold
+    )
 
-    print_custom(f"{st}{message}", *codes, end=end)
-
-def print_info(*msg, sep=" | ", st="\n", end="\n\n", info_tag=True, bright=True, bold=False):
+def print_warning(*msg, sep=" | ", st="\n", end="\n\n", lvl_tag=True, bright=True, bold=False):
     message = sep.join(msg)
-    if info_tag:
-        message = f"[INFO] {message}"
+    lvl = "Warning" if lvl_tag else ""
 
-    codes = [97 if bright else 37]
-    if bold:
-        codes.append(1) # appending 1 to make the txt bold
+    __print_level(
+        message,
+        level=lvl,
+        st=st,
+        end=end,
+        color=33,
+        bright=bright,
+        bold=bold
+    )
 
-    print_custom(f"{st}{message}", *codes, end=end)
+def print_info(*msg, sep=" | ", st="\n", end="\n\n", lvl_tag=True, bright=True, bold=False):
+    message = sep.join(msg)
+    lvl = "Info" if lvl_tag else ""
+
+    __print_level(
+        message,
+        level=lvl,
+        st=st,
+        end=end,
+        color=37,
+        bright=bright,
+        bold=bold
+    )
 
 
 # ========= Logging functions =========
-def log_error(*msg, sep=" | ", info_tag=False, st=""):
+def log_error(*msg, sep=" | ", lvl_tag=False, st=""):
     message = sep.join(msg)
-    if info_tag:
-        final_msg = f"{st}[ERROR] {message}"
-    else:
-        final_msg = f"{st}{message}"
-    logging.error(final_msg)
+    if lvl_tag:
+        message = f"[ERROR] {message}"
 
-def log_warning(*msg, sep=" | ", info_tag=False, st=""):
+    logging.error(f"{st}{message}")
+
+def log_warning(*msg, sep=" | ", lvl_tag=False, st=""):
     message = sep.join(msg)
-    if info_tag:
-        final_msg = f"{st}[WARNING] {message}"
-    else:
-        final_msg = f"{st}{message}"
-    logging.warning(final_msg)    
+    if lvl_tag:
+        message = f"[WARNING] {message}"
 
-def log_info(*msg, sep=" | ", info_tag=False, st=""):
+    logging.warning(f"{st}{message}")    
+
+def log_info(*msg, sep=" | ", lvl_tag=False, st=""):
     message = sep.join(msg)
-    if info_tag:
-        final_msg = f"{st}[INFO] {message}"
-    else:
-        final_msg = f"{st}{message}"
-    logging.info(final_msg)    
+    if lvl_tag:
+        message = f"[INFO] {message}"
 
+    logging.info(f"{st}{message}")    

@@ -1,15 +1,14 @@
-from html import escape
 import time
-import http.server
 import os
-from pathlib import Path
+import http.server as http_server
+from html import escape
 from urllib.parse import parse_qs, quote
-from core import credentials, server
-from core.utils import logger, helper
-from core.utils.security import Security
-from core.state import FileState, ServerState
+from .. import credentials, server
+from ..utils import logger, helper
+from ..utils.security import Security
+from ..states import FileState, ServerState
 
-class FileHandler(http.server.SimpleHTTPRequestHandler):
+class FileHandler(http_server.SimpleHTTPRequestHandler):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
@@ -67,13 +66,16 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
 
             try:
                 content_type = 'application/octet-stream'
-                if file_path.suffix == '.css':
+                ext = str(file_path.suffix).lower()
+                if ext == '.css':
                     content_type = 'text/css'
-                elif file_path.suffix == '.js':
+                elif ext in ('.js', '.mjs'):
                     content_type = 'application/javascript'
-                elif file_path.suffix in ('.png', '.jpg', '.jpeg'):
-                    content_type = 'image/' + ('png' if file_path.suffix == '.png' else 'jpeg')
-                elif file_path.suffix == '.ico':
+                elif ext == '.png':
+                    content_type = 'image/png'
+                elif ext in ('.jpg', '.jpeg'):
+                    content_type = 'image/jpeg'
+                elif ext == '.ico':
                     content_type = 'image/x-icon'
 
                 file_size = file_path.stat().st_size
@@ -96,7 +98,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                 logger.log_error(f"Serving file: {str(e)}")
                 return
 
-        if not self.check_authentication():
+        if not Security.check_authentication(self):
             self.send_login_page()
             return
 
@@ -110,6 +112,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header('Content-Type', 'text/html')
                     self.send_header('Content-Length', str(file_size))
                     self.end_headers()
+
                     with file_path.open('rb') as f:
                         chunk = f.read(8192)
                         while chunk:
@@ -188,28 +191,9 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
 
             self.send_login_page(message="Invalid username or OTP.")
 
-    def check_authentication(self):
-        session_token = Security.get_session_token(self)
-        session_data = ServerState.SESSION_MANAGER.get_session(session_token)
-
-        if not session_token or not session_data:
-            return False
-        if session_data['ip'] != self.client_address[0]:
-            logger.print_warning(f"Session-token stolen from {session_data['ip']}", "Request terminated!")
-            logger.log_warning(f"Session-token stolen from User[{session_data['ip']}]", "Request terminated")
-            ServerState.SESSION_MANAGER.remove_session(session_token)
-            return False
-        if time.monotonic() >= session_data['expiry']:
-            ServerState.SESSION_MANAGER.remove_session(session_token)
-            return False
-        
-        return True
-
     def send_login_page(self, message=None):
         try:
             html = FileState.LOGIN_HTML
-            options_html = "\n".join(f'<option value="{mins*60}">{label}</option>' for mins, label in ServerState.OPTIONS)
-            html = html.replace('{{options}}', options_html)
             html = html.replace('{{message}}', message or '')
             self.send_response(200)
             Security.send_security_headers(self)
@@ -221,12 +205,12 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             logger.print_error(f"Rendering login page: {str(e)}")
             logger.log_error(f"Rendering login page: {str(e)}")
 
-    def translate_path(self, path) -> Path | None:
+    def translate_path(self, path) -> str:
         path = super().translate_path(path)
-        real_path = helper.refine_path(path)
-        if not str(real_path).startswith(str(FileState.ROOT_DIR)):
+        real_path = str(helper.refine_path(path))
+        if not real_path.startswith(str(FileState.ROOT_DIR)):
             self.send_error(403, "Access denied")
-            return None
+            return ""
         
         return real_path
 
