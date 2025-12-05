@@ -2,11 +2,11 @@
 FyShare : Secure one-time file sharing server
 """
 from pathlib import Path
-from core import ConfigError, load_config
 from core import server, credentials
-from core.state import FileState, ServerState, StateError
+from core.config_loader import load_config, backup_config
+from core.session import SessionManager
+from core.states import FileState, ServerState, StateError
 from core.utils import logger, helper
-from core.session import SessionManager 
 
 def main() -> None:
     # Current folder
@@ -17,17 +17,14 @@ def main() -> None:
 
     # Load and validate configuration
     FileState.config_path = helper.refine_path(f"{this_dir}/config.json")
-    try:
-        FileState.CONFIG = load_config(FileState.config_path)
-    except ConfigError as e:
-        logger.print_error(str(e))
-        logger.print_info("Attempting to restore from backup config...")
-        if not FileState.backup_config():
-            logger.print_error("Failed to recover config")
-            exit(1)
+    FileState.CONFIG = load_config(FileState.config_path)
+
+    # Request for backup if config isn't valid/found
+    if not FileState.CONFIG:
+        if not backup_config(): return
         
         FileState.CONFIG = load_config(FileState.config_path)
-
+    
     # Setup directories (root, templates, static)
     try:
         FileState.set_root_path()
@@ -41,9 +38,9 @@ def main() -> None:
         return
 
     # Initialize core components
-    ServerState.SESSION_MANAGER = SessionManager()  # session manager
-    ServerState.init_server_state()                 # set Port and IP
-    server.init_server()                            # TCPServer instance
+    ServerState.SESSION_MANAGER = SessionManager()
+    ServerState.init_server_state()
+    server.init_server()
 
     # First-time startup banner
     startup_url = f"http://{ServerState.LOCAL_IP}:{ServerState.PORT}"
