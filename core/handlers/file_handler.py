@@ -45,7 +45,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             session = ServerState.SESSION_MANAGER.get_session(session_token)
             if session_token and session:
                 client_ip = session['ip']
-                logger.print_info(f"User[{client_ip}] logged-out.\n")
+                logger.print_info(f"User[{client_ip}] logged-out.")
                 logger.log_info(f"- User[{client_ip}] logged-out")
                 ServerState.SESSION_MANAGER.remove_session(session_token)
 
@@ -61,7 +61,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             
             if not file_path.exists() or not file_path.is_file():
                 self.send_error(404, "File not found")
-                logger.print_warning(f"User[{client_ip}] tried to access invalid static file.\n")
+                logger.print_warning(f"User[{client_ip}] tried to access invalid static file.")
                 logger.log_warning(f"User[{client_ip}] tried to access invalid static file")
                 return
 
@@ -92,7 +92,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             
             except Exception as e:
                 self.send_error(500, f"Internal Server Error")
-                logger.print_error(f"Serving file: {str(e)}\n")
+                logger.print_error(f"Serving file: {str(e)}")
                 logger.log_error(f"Serving file: {str(e)}")
                 return
 
@@ -117,7 +117,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                             chunk = f.read(8192)
                 except Exception as e:
                     self.send_error(500, f"Error: Something went wrong.")
-                    logger.print_error(f"Serving html file: {str(e)}.\n")
+                    logger.print_error(f"Serving html file: {str(e)}.")
                     logger.log_error(f"Serving html file: {str(e)}")
             else:
                 self.send_error(404, "File not found")
@@ -128,7 +128,6 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
         client_ip = self.client_address[0]
         current_time = time.monotonic()
 
-        ServerState.SESSION_MANAGER.clean_expired_attempts()
         if ServerState.SESSION_MANAGER.is_blocked(client_ip, current_time):
             self.send_response(403)
             Security.send_security_headers(self)
@@ -196,8 +195,8 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
         if not session_token or not session_data:
             return False
         if session_data['ip'] != self.client_address[0]:
-            logger.print_warning(f"Session-token stolen from {session_data['ip']}", "Request terminated!\n")
-            logger.log_warning(f"Session-token stolen from User[{session_data['ip']}]")
+            logger.print_warning(f"Session-token stolen from {session_data['ip']}", "Request terminated!")
+            logger.log_warning(f"Session-token stolen from User[{session_data['ip']}]", "Request terminated")
             ServerState.SESSION_MANAGER.remove_session(session_token)
             return False
         if time.monotonic() >= session_data['expiry']:
@@ -219,7 +218,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(html.encode('utf-8'))
         except Exception as e:
             self.send_error(500, f"Error: Something went wrong.")
-            logger.print_error(f"Rendering login page: {str(e)}\n")
+            logger.print_error(f"Rendering login page: {str(e)}")
             logger.log_error(f"Rendering login page: {str(e)}")
 
     def translate_path(self, path) -> Path | None:
@@ -243,12 +242,12 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             return None
         except Exception as e:
             self.send_error(500, "Internal Server Error")
-            logger.print_error(f"Directory-listing {path}: {str(e)}\n")
+            logger.print_error(f"Directory-listing {path}: {str(e)}")
             logger.log_error(f"Directory-listing {path}: {str(e)}")
             return None
 
         file_list.sort(key=lambda a: (not a.is_dir(), a.name.lower()))
-        displaypath = os.path.relpath(path, FileState.ROOT_DIR).strip('/.') or '.'
+        displaypath = os.path.relpath(path, str(FileState.ROOT_DIR)).strip('/.') or '.'
 
         try:
             response = self.generate_html(file_list, displaypath)
@@ -261,7 +260,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(encoded)
         except Exception as e:
             self.send_error(500, f"Error generating response.")
-            logger.print_error(f"Generating response: {str(e)}\n")
+            logger.print_error(f"Generating response: {str(e)}")
             logger.log_error(f"Generating response: {str(e)}")
 
     def generate_html(self, file_list, displaypath):
@@ -305,7 +304,7 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                         <td>{action}</td>
                     </tr>"""
             except Exception as e:
-                logger.print_error(f"\nProcessing {entry.name}: {str(e)}\n")
+                logger.print_error(f"\nProcessing {entry.name}: {str(e)}")
                 continue
     
         return template.replace('{{breadcrumbs}}', breadcrumbs).replace('{{table_rows}}', table_rows)
