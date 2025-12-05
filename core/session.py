@@ -28,7 +28,7 @@ class SessionManager:
             current_time = time.monotonic()
             expired = [t for t, s in self.sessions.items() if current_time > s['expiry']]
             for token in expired:
-                logger.print_info(f"Session expired for User[{self.sessions[token]['ip']}].\n")
+                logger.print_info(f"Session expired for User[{self.sessions[token]['ip']}]")
                 logger.log_info(f"- Session expired", f"User[{self.sessions[token]['ip']}]")
                 del self.sessions[token]
 
@@ -46,13 +46,13 @@ class SessionManager:
 
                 if data['count'] >= FileState.CONFIG['max_total_attempts']:
                     data['blocked_until'] = current_time + block_time * 60
-                    logger.print_warning(f"Blocked User[{ip}] for {block_time} minutes due to excessive attempts.\n")
+                    logger.print_warning(f"Blocked User[{ip}] for {block_time} minutes due to excessive attempts")
                     logger.log_warning(f"- Blocked User[{ip}] for {block_time} minutes", "excessive attempts")
                     return
 
                 if data['count'] % FileState.CONFIG['max_attempts'] == 0:
                     data['cool_until'] = current_time + cooldown_s
-                    logger.print_info(f"User[{ip}] is in cool-down for {cooldown_s} seconds due to excessive attempts.\n")
+                    logger.print_info(f"User[{ip}] is in cool-down for {cooldown_s} seconds due to excessive attempts")
                     logger.log_info(f"- User[{ip}] is in cool-down for {cooldown_s} seconds")
                     return
 
@@ -73,13 +73,11 @@ class SessionManager:
             for ip, data in list(self.attempts.items()):
                 # Clean expired blocks
                 if 'blocked_until' in data and current_time >= data['blocked_until']:
-                    logger.print_info(f"Unblocked User[{ip}]\n")
+                    logger.print_info(f"Unblocked User[{ip}]")
                     logger.log_info(f"- Unblocked User[{ip}]")
                     expired_ips.append(ip)
-                    continue
 
-                # Clean raw attempts
-                if 'last_time' in data and current_time - data['last_time'] > FileState.CONFIG['cleanup_timeout_m']*60:
+                elif 'last_time' in data and current_time - data['last_time'] > FileState.CONFIG['cleanup_timeout_m']*60:
                     expired_ips.append(ip)
 
             # Remove fully expired entries

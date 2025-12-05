@@ -37,4 +37,4 @@ def generate_credentials(message = str("")):
         print(f"   - Time Out  : {FileState.CONFIG['idle_timeout_m']} minutes")
         logger.print_custom("\n---------------------------------------------", 1)
 
-        logger.log_info(f"Generated New Credentials", f"Reason: {message or "None"}")
+        logger.log_info(f"Generated New Credentials", f"Message: {message or "None"}")

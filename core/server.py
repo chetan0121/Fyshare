@@ -53,7 +53,8 @@ def run_server():
     idle_timeout_s = idle_timeout_m * 60
 
     while ServerState.is_running:
-        # Clean expired sessions and update current time
+        # Clean expired sessions & attempts and update current time
+        Session.clean_expired_attempts()
         Session.clean_expired_sessions()
         current_time = time.monotonic()
 
