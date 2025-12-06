@@ -34,7 +34,7 @@ def main() -> None:
         logger.print_error(f"Directory setup failed: {e}")
         return
     except KeyboardInterrupt:
-        print("\n\nOperation cancelled by user.")
+        logger.print_info("Operation cancelled by user")
         return
 
     # Initialize core components
@@ -45,11 +45,11 @@ def main() -> None:
     # First-time startup banner
     startup_url = f"http://{ServerState.LOCAL_IP}:{ServerState.PORT}"
     logger.log_info(
-        f"- Server started → {startup_url} | Serving: '{FileState.ROOT_DIR}'"
+        f"\n- Server started → {startup_url} | Serving: '{FileState.ROOT_DIR}'"
     )
 
     # Generate and print credentials
-    credentials.generate_credentials("Server just started")
+    credentials.generate_credentials("New server started")
     print("Refer to ReadMe.md for secure file-sharing instructions.\n")
 
     # Start the server (loop)
@@ -58,8 +58,7 @@ def main() -> None:
     except KeyboardInterrupt:
         server.shutdown_server("- Server stopped manually")
     except Exception as e:
-        logger.print_error(f"Server error: {e}")
-        logger.log_error(f"Server error: {e}")
+        logger.emit_error(f"Server error: {e}")
         server.shutdown_server(f"- Server terminated due to error")
 
 # Entry point

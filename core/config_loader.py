@@ -23,11 +23,11 @@ def normalize_config(config) -> dict:
             # Allowed failed attempts per IP before cooldown         
             "max_attempts": int(config["max_attempts_per_ip"]),  
 
-            # Cooldown duration for an IP after exceeding "max_attempts"                
-            "cooldown_s": int(config["cooldown_seconds"]),           
-
             # Total allowed attempts before IP is blocked               
             "max_total_attempts": int(config["max_total_attempts_per_ip"]),         
+
+            # Cooldown duration for an IP after exceeding "max_attempts"                
+            "cooldown_s": int(config["cooldown_seconds"]),           
 
             # Duration of an IP remains blocked (after reaching "max_total_attempts")
             "block_time_m": int(config["block_time_minutes"]),                      
@@ -55,7 +55,7 @@ def check_config(CONFIG) -> None:
         raise ConfigError("'refresh_time_seconds' must be between 0 and 5 seconds (excluding 0)")
 
     if CONFIG['max_attempts'] < 1 or CONFIG['max_attempts'] >= CONFIG['max_total_attempts']:
-        raise ConfigError("invalid 'max_attempts', it must be between 1 and 'max_total_attempts'")
+        raise ConfigError("'max_attempts' must be between 1 and 'max_total_attempts'")
     
     if CONFIG['max_total_attempts'] > 50:
         raise ConfigError("'max_total_attempts_per_ip' can't be more than 50 numbers")

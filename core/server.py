@@ -11,11 +11,14 @@ def init_server():
     """
     Run this only after -> state.init_server_state()
     """
+    port = ServerState.PORT
     try:
-        ServerState.Server = http_server.ThreadingHTTPServer(("", ServerState.PORT), FileHandler)
+        ServerState.Server = http_server.ThreadingHTTPServer(("", port), FileHandler)
     except OSError as e:
-        logger.print_error(f"Server: Failed to bind to port[{ServerState.PORT}], Please try again.")
-        print("- Details:", e)
+        logger.print_error(
+            f"Server: Failed to bind to port[{port}], Please try again.",
+            f"\nMore Details: {str(e)}"
+        )
         exit(1)
 
 def shutdown_server(msg=""):
@@ -24,13 +27,12 @@ def shutdown_server(msg=""):
             ServerState.is_running = False
             ServerState.Server.server_close()
         except Exception as e:
-            logger.print_error(f"During shutdown: {e}")
-            logger.log_error(f"During shutdown: {e}")
+            logger.emit_error(f"During shutdown: {str(e)}")
             return
 
     # Print and log the msg
     logger.print_info(f"{msg}", lvl_tag=False)
-    logger.log_info(f"{msg}\n")
+    logger.log_info(f"{msg}\n", lvl_tag=False)
 
 def run_server():
     ServerState.is_running = True
