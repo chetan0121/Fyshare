@@ -4,7 +4,7 @@ import http.server as http_server
 from html import escape
 from urllib.parse import parse_qs, quote
 from .. import credentials, server
-from ..utils import logger, helper
+from ..utils import logger
 from ..utils.security import Security
 from ..states import FileState, ServerState
 
@@ -15,14 +15,14 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
 
     def copyfile(self, source, outputfile):
         client_ip = self.client_address[0]
-        src = self.translate_path(self.path)
+        src = Security.translate_path(self, self.path)
         try:
             super().copyfile(source, outputfile)
         except (BrokenPipeError, ConnectionResetError):
-            logger.print_info(
-                f"User({client_ip}) disconnected during sending a file: '{src}'"
+            logger.emit_info(
+                f"User({client_ip}) disconnected while uploading: '{src}'"
             )
-# Receiving
+
     def do_GET(self):
         client_ip = self.client_address[0]
         current_time = time.monotonic()
@@ -54,8 +54,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             session = ServerState.SESSION_MANAGER.get_session(session_token)
             if session_token and session:
                 client_ip = session['ip']
-                logger.print_info(f"User({client_ip}) logged-out")
-                logger.log_info(f"User({client_ip}) logged-out")
+                logger.emit_info(f"User({client_ip}) logged-out")
                 ServerState.SESSION_MANAGER.remove_session(session_token)
 
             self.send_response(302)
@@ -70,8 +69,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             
             if not file_path.exists() or not file_path.is_file():
                 self.send_error(404, "File not found")
-                logger.print_warning(f"User[{client_ip}] tried to access invalid static file.")
-                logger.log_warning(f"User[{client_ip}] tried to access invalid static file")
+                logger.emit_warning(f"User[{client_ip}] tried to access invalid static file.")
                 return
 
             try:
@@ -104,8 +102,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             
             except Exception as e:
                 self.send_error(500, f"Internal Server Error")
-                logger.print_error(f"Serving file: {str(e)}")
-                logger.log_error(f"Serving file: {str(e)}")
+                logger.emit_error(f"Serving file: {str(e)}")
                 return
 
         if not Security.check_authentication(self):
@@ -113,7 +110,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             return
 
         if self.path.endswith('.html'):
-            file_path = self.translate_path(self.path)
+            file_path = Security.translate_path(self, self.path)
             if file_path.exists() and file_path.is_file():
                 try:
                     file_size = file_path.stat().st_size
@@ -130,8 +127,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
                             chunk = f.read(8192)
                 except Exception as e:
                     self.send_error(500, f"Error: Something went wrong.")
-                    logger.print_error(f"Serving html file: {str(e)}.")
-                    logger.log_error(f"Serving html file: {str(e)}")
+                    logger.emit_error(f"Serving html file: {str(e)}")
             else:
                 self.send_error(404, "File not found")
         else:
@@ -167,7 +163,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             return
 
         if not Security.validate_credentials(self, submitted_username, submitted_otp, timeout_seconds):
-            self.send_login_page(message="Invalid input. Please check your username and OTP format.")
+            self.send_login_page(message="Invalid input! Please check your username and OTP format.")
             return
 
         if len(ServerState.SESSION_MANAGER.sessions) >= FileState.CONFIG['max_users']:
@@ -184,8 +180,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             self.send_header('Set-Cookie', f'session_token={session_token}; Path=/; HttpOnly; Max-Age={timeout_seconds}; SameSite=Strict')
             self.end_headers()
 
-            logger.print_info(f"User[{client_ip}] logged-in")
-            logger.log_info(f"- User[{client_ip}] logged-in")
+            logger.emit_info(f"User[{client_ip}] logged-in")
         else:
             ServerState.SESSION_MANAGER.update_attempts(client_ip, current_time)
 
@@ -212,17 +207,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             self.wfile.write(html.encode('utf-8'))
         except Exception as e:
             self.send_error(500, f"Error: Something went wrong.")
-            logger.print_error(f"Rendering login page: {str(e)}")
-            logger.log_error(f"Rendering login page: {str(e)}")
-
-    def translate_path(self, path) -> str:
-        path = super().translate_path(path)
-        real_path = str(helper.refine_path(path))
-        if not real_path.startswith(str(FileState.ROOT_DIR)):
-            self.send_error(403, "Access denied")
-            return ""
-        
-        return real_path
+            logger.emit_error(f"Rendering login page: {str(e)}")
 
     def list_directory(self, path):
         try:
@@ -236,8 +221,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             return None
         except Exception as e:
             self.send_error(500, "Internal Server Error")
-            logger.print_error(f"Directory-listing {path}: {str(e)}")
-            logger.log_error(f"Directory-listing {path}: {str(e)}")
+            logger.emit_error(f"Directory-listing {path}: {str(e)}")
             return None
 
         file_list.sort(key=lambda a: (not a.is_dir(), a.name.lower()))
@@ -254,8 +238,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             self.wfile.write(encoded)
         except Exception as e:
             self.send_error(500, f"Error generating response.")
-            logger.print_error(f"Generating response: {str(e)}")
-            logger.log_error(f"Generating response: {str(e)}")
+            logger.emit_error(f"Generating response: {str(e)}")
 
     def generate_html(self, file_list, displaypath):
         template = FileState.FYSHARE_HTML
@@ -298,7 +281,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
                         <td>{action}</td>
                     </tr>"""
             except Exception as e:
-                logger.print_error(f"\nProcessing {entry.name}: {str(e)}")
+                logger.print_error(f"Processing {entry.name}: {str(e)}")
                 continue
     
         return template.replace('{{breadcrumbs}}', breadcrumbs).replace('{{table_rows}}', table_rows)

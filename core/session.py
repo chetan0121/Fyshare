@@ -27,8 +27,7 @@ class SessionManager:
             current_time = time.monotonic()
             expired = [t for t, s in self.sessions.items() if current_time > s['expiry']]
             for token in expired:
-                logger.print_info(f"Session expired for User[{self.sessions[token]['ip']}]")
-                logger.log_info(f"- Session expired", f"User[{self.sessions[token]['ip']}]")
+                logger.emit_info(f"Session expired for User({self.sessions[token]['ip']})")
                 del self.sessions[token]
 
     def update_attempts(self, ip, current_time):
@@ -45,16 +44,13 @@ class SessionManager:
 
                 if data['count'] >= FileState.CONFIG['max_total_attempts']:
                     data['blocked_until'] = current_time + block_time * 60
-                    logger.print_warning(f"Blocked User[{ip}] for {block_time} minutes due to excessive attempts")
-                    logger.log_warning(f"- Blocked User[{ip}] for {block_time} minutes", "excessive attempts")
+                    logger.emit_warning(f"Blocked User[{ip}] for {block_time} minutes due to excessive attempts")
                     return
 
                 if data['count'] % FileState.CONFIG['max_attempts'] == 0:
                     data['cool_until'] = current_time + cooldown_s
-                    logger.print_info(f"User[{ip}] is in cool-down for {cooldown_s} seconds due to excessive attempts")
-                    logger.log_info(f"- User[{ip}] is in cool-down for {cooldown_s} seconds")
+                    logger.emit_info(f"User[{ip}] is in cool-down for {cooldown_s} seconds due to excessive attempts")
                     return
-
 
     def is_inCool(self, ip, current_time):
         with self.lock:
@@ -72,8 +68,7 @@ class SessionManager:
             for ip, data in list(self.attempts.items()):
                 # Clean expired blocks
                 if 'blocked_until' in data and current_time >= data['blocked_until']:
-                    logger.print_info(f"Unblocked User[{ip}]")
-                    logger.log_info(f"- Unblocked User[{ip}]")
+                    logger.emit_info(f"Unblocked User[{ip}]")
                     expired_ips.append(ip)
 
                 elif 'last_time' in data and current_time - data['last_time'] > FileState.CONFIG['cleanup_timeout_m']*60:
