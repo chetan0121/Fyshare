@@ -2,11 +2,49 @@ import logging
 import sys
 from pathlib import Path
 
-def set_logger(file: Path | str):
+class CodeDict(dict):
+    __setattr__ = dict.__setitem__
+    RESET = "\033[0m"
+
+    def __getattr__(self, key):
+        try:
+            return self[key]
+        except KeyError:
+            raise AttributeError(key)
+    
+    @staticmethod
+    def join_codes(codes: list):
+        return f"\033[{';'.join(codes)}m"
+
+COLORS = CodeDict({
+    "black": 30,
+    "red": 31,
+    "green": 32,
+    "yellow": 33,
+    "blue": 34,
+    "magenta": 35,
+    "cyan": 36,
+    "white": 37
+})
+
+def set_logger(file: str) -> None:
+    """
+    Configure rotating file logger
+    - Automatically creates log directory if it doesn't exist
+    - 1 MB per file, keeps last 3 backups
+    - UTF-8 encoding
+    - Timestamp format: 2025-12-06 14:32:10
+
+    Param: file -> Name and path of a log file
+    
+    Usage:
+        set_logger("logs/fyshare.log")
+        Log something using:
+            e.g. logger.log_error("Server started")
+    """
     from logging.handlers import RotatingFileHandler
     
-    log_file = Path(file)
-    log_file.parent.mkdir(parents=True, exist_ok=True)
+    Path(file).parent.mkdir(parents=True, exist_ok=True)
 
     logging.basicConfig(
         level=logging.INFO,
@@ -15,7 +53,7 @@ def set_logger(file: Path | str):
         force=True,  # Removes previous handlers
         handlers=[
             RotatingFileHandler(
-                str(log_file),
+                file,
                 maxBytes=1_000_000,
                 backupCount=3,
                 encoding='utf-8'
@@ -23,8 +61,16 @@ def set_logger(file: Path | str):
         ]
     )
 
+# Check for int
+def __parse_int(txt) -> int | None:
+    try:
+        num = int(txt)
+        return num
+    except (TypeError, ValueError):
+        return None
+
 # Print text with optional ANSI escape codes
-def print_custom(txt="", *ansiCodes, end="\n"):
+def print_custom(txt="", *codes, end="\n"):
     """
     Prints styled text to the console using ANSI escape codes.
 
@@ -33,123 +79,147 @@ def print_custom(txt="", *ansiCodes, end="\n"):
         - *ansi_codes: Variable-length list of ANSI codes (int/str)
                      to style the text. Example: 31 for red, 1 for bold.
         - end (str): String appended after the text. Defaults to a newline.
-
     Notes:
         - ANSI codes are applied to the text only; `end` is printed as-is.
         - If no valid ANSI codes are provided, the text is printed as it is.
         - Invalid ANSI codes (non-integer/non-string/non-ANSI) are ignored.
     """
     
-    def __is_int(s):
-        """Helper to check if a value can be converted to an integer."""
-        try:
-            int(s)
-            return True     
-        except (ValueError, TypeError):
-            return False
-        
-    clean_codes = []
-    for a in ansiCodes:
-        if isinstance(a, int) or __is_int(a):
-            clean_codes.append(str(a))
+    valid_codes = [str(c) for c in codes if __parse_int(c) is not None]
 
-    if clean_codes:
-        prefix = "\033[" + ";".join(clean_codes) + "m"
-        msg = str(prefix + txt + "\033[0m")
-    else:
-        msg = txt
-        
-    sys.stdout.write(f"{msg}{end}")    
+    msg = txt
+    if valid_codes:
+        prefix = CodeDict.join_codes(valid_codes)
+        msg = f"{prefix}{txt}{CodeDict.RESET}"
+    
+    sys.stdout.write(f"{msg}{end}")
+
+# === Utils ===
+def __set_level(txt: str, level: str, enable: bool):
+    return f"[{level}] {txt}" if enable else txt
 
 def __print_level(
-    msg="", 
-    level="", 
-    st="", 
-    end="", 
-    color=37, 
-    bright=True, 
-    bold=False
+    txt: str,
+    prefix: str,
+    end: str,
+    color: str | int,
+    is_bright: bool,
+    is_bold: bool
 ):
     """Private Function to style txt of printers (e.g. print_error())"""
 
-    if level:
-        level.strip().upper()
-        msg = f"[{level}] {msg}"
+    color = __parse_int(color) 
+    if color not in COLORS.values():
+        color = 37  # White as default
 
     codes = []
-    if bright:
+    if is_bright:
         codes.append(color + 60)
     else:
         codes.append(color)    
 
-    if bold:
+    if is_bold:
         codes.append(1)
 
-    print_custom(f"{st}{msg}", *codes, end=end)
-
+    print_custom(f"{prefix}{txt}", *codes, end=end)
 
 # ========= Printer functions =========
-def print_error(*msg, sep=" | ", st="\n", end="\n\n", lvl_tag=True, bright=True, bold=False):
+def print_error(*msg, sep=" | ", prefix="\n", end="\n\n", lvl_tag=True, bright=True, bold=False):
     message = sep.join(msg)
-    lvl = "Error" if lvl_tag else ""
+    message = __set_level(message, "ERROR", lvl_tag)
 
     __print_level(
         message,
-        level=lvl,
-        st=st,
-        end=end,
+        prefix,
+        end,
         color=31,
-        bright=bright,
-        bold=bold
+        is_bright=bright,
+        is_bold=bold
     )
 
-def print_warning(*msg, sep=" | ", st="\n", end="\n\n", lvl_tag=True, bright=True, bold=False):
+def print_warning(*msg, sep=" | ", prefix="\n", end="\n\n", lvl_tag=True, bright=True, bold=False):
     message = sep.join(msg)
-    lvl = "Warning" if lvl_tag else ""
+    message = __set_level(message, "WARNING", lvl_tag)
 
     __print_level(
         message,
-        level=lvl,
-        st=st,
-        end=end,
+        prefix,
+        end,
         color=33,
-        bright=bright,
-        bold=bold
+        is_bright=bright,
+        is_bold=bold
     )
 
-def print_info(*msg, sep=" | ", st="\n", end="\n\n", lvl_tag=True, bright=True, bold=False):
+def print_info(*msg, sep=" | ", prefix="\n", end="\n\n", lvl_tag=True, bright=True, bold=False):
     message = sep.join(msg)
-    lvl = "Info" if lvl_tag else ""
+    message = __set_level(message, "INFO", lvl_tag)
 
     __print_level(
         message,
-        level=lvl,
-        st=st,
-        end=end,
+        prefix,
+        end,
         color=37,
-        bright=bright,
-        bold=bold
+        is_bright=bright,
+        is_bold=bold
     )
-
 
 # ========= Logging functions =========
-def log_error(*msg, sep=" | ", lvl_tag=False, st=""):
+def log_error(*msg, sep=" | ", lvl_tag=True, prefix=""):
     message = sep.join(msg)
-    if lvl_tag:
-        message = f"[ERROR] {message}"
+    message = __set_level(message, "ERROR", lvl_tag)
 
-    logging.error(f"{st}{message}")
+    logging.error(f"{prefix}{message}")
 
-def log_warning(*msg, sep=" | ", lvl_tag=False, st=""):
+def log_warning(*msg, sep=" | ", lvl_tag=True, prefix=""):
     message = sep.join(msg)
-    if lvl_tag:
-        message = f"[WARNING] {message}"
+    message = __set_level(message, "WARNING", lvl_tag)
 
-    logging.warning(f"{st}{message}")    
-
-def log_info(*msg, sep=" | ", lvl_tag=False, st=""):
+    logging.warning(f"{prefix}{message}")
+    
+def log_info(*msg, sep=" | ", lvl_tag=True, prefix=""):
     message = sep.join(msg)
-    if lvl_tag:
-        message = f"[INFO] {message}"
+    message = __set_level(message, "INFO", lvl_tag)
 
-    logging.info(f"{st}{message}")    
+    logging.info(f"{prefix}{message}")
+
+# ===== Logging and Printing =====
+def __emit_print(txt: str, color: int):
+    # print error
+    __print_level(
+        txt,
+        "\n",
+        "\n\n",
+        color=color,
+        is_bright=True,
+        is_bold=False
+    )
+
+def emit_error(*msg, sep=" | ", lvl_tag = True):
+    message = sep.join(msg)
+    message = __set_level(message, "ERROR", lvl_tag)
+
+    # Print error
+    __emit_print(message, 31)
+
+    # Log error
+    logging.error(f"{message}")
+
+def emit_warning(*msg, sep=" | ", lvl_tag = True):
+    message = sep.join(msg)
+    message = __set_level(message, "WARNING", lvl_tag)
+
+    # print warning
+    __emit_print(message, 33)
+
+    # Log warning
+    logging.warning(f"{message}")
+    
+def emit_info(*msg, sep=" | ", lvl_tag = True):
+    message = sep.join(msg)
+    message = __set_level(message, "INFO", lvl_tag)
+
+    # print info
+    __emit_print(message, 37)
+
+    # Log info
+    logging.info(f"{message}")
