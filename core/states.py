@@ -8,13 +8,13 @@ import threading
 import secrets
 from pathlib import Path
 from .utils import helper
-from socketserver import ThreadingTCPServer
+from http.server import ThreadingHTTPServer
 
 class StateError(Exception): pass
 
 class ServerState:
     # Server
-    Server: ThreadingTCPServer | None = None
+    Server: ThreadingHTTPServer | None = None
     is_running = False
 
     # Credentials

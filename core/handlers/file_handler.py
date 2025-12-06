@@ -19,10 +19,10 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
         try:
             super().copyfile(source, outputfile)
         except (BrokenPipeError, ConnectionResetError):
-            logger.print_warning(
+            logger.print_info(
                 f"User({client_ip}) disconnected during sending a file: '{src}'"
             )
-
+# Receiving
     def do_GET(self):
         client_ip = self.client_address[0]
         current_time = time.monotonic()

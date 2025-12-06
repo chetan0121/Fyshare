@@ -1,5 +1,5 @@
 import time
-import socketserver
+import http.server as http_server
 from . import credentials
 from .utils import logger
 from .states import ServerState, FileState
@@ -7,20 +7,15 @@ from .handlers.file_handler import FileHandler
 
 class ServerError(Exception): pass
 
-import http.server as http_server
-class CustomServer(socketserver.ThreadingMixIn, http_server.HTTPServer):
-    daemon_threads = True
-
 def init_server():
     """
     Run this only after -> state.init_server_state()
     """
     try:
-        # ServerState.Server = socketserver.ThreadingTCPServer(("", ServerState.PORT), FileHandler)
-        ServerState.Server = CustomServer(("lol", ServerState.PORT), FileHandler)
+        ServerState.Server = http_server.ThreadingHTTPServer(("", ServerState.PORT), FileHandler)
     except OSError as e:
         logger.print_error(f"Server: Failed to bind to port[{ServerState.PORT}], Please try again.")
-        print("  Details:", e)
+        print("- Details:", e)
         exit(1)
 
 def shutdown_server(msg=""):
