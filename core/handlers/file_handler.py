@@ -13,6 +13,16 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
 
+    def copyfile(self, source, outputfile):
+        client_ip = self.client_address[0]
+        src = self.translate_path(self.path)
+        try:
+            super().copyfile(source, outputfile)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.print_warning(
+                f"User({client_ip}) disconnected during sending a file: '{src}'"
+            )
+
     def do_GET(self):
         client_ip = self.client_address[0]
         current_time = time.monotonic()
@@ -44,8 +54,8 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             session = ServerState.SESSION_MANAGER.get_session(session_token)
             if session_token and session:
                 client_ip = session['ip']
-                logger.print_info(f"User[{client_ip}] logged-out.")
-                logger.log_info(f"- User[{client_ip}] logged-out")
+                logger.print_info(f"User({client_ip}) logged-out")
+                logger.log_info(f"User({client_ip}) logged-out")
                 ServerState.SESSION_MANAGER.remove_session(session_token)
 
             self.send_response(302)
