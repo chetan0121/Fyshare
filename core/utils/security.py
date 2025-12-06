@@ -1,7 +1,7 @@
 import re, time
 import http.server as http_server
-from . import logger
-from ..states import ServerState
+from . import helper
+from ..states import ServerState, FileState
 
 class Security(http_server.SimpleHTTPRequestHandler):
     
@@ -39,19 +39,26 @@ class Security(http_server.SimpleHTTPRequestHandler):
 
     def check_authentication(self):
         session_token = Security.get_session_token(self)
+        if not session_token:
+            return False
+        
         session_data = ServerState.SESSION_MANAGER.get_session(session_token)
-
-        if not session_token or not session_data:
+        if not session_data:
             return False
-        if session_data['ip'] != self.client_address[0]:
-            logger.print_warning(f"Session-token stolen from {session_data['ip']}", "Request terminated")
-            logger.log_warning(f"Session-token stolen from User[{session_data['ip']}]", "Request terminated")
-            ServerState.SESSION_MANAGER.remove_session(session_token)
-            return False
+        
         if time.monotonic() >= session_data['expiry']:
             ServerState.SESSION_MANAGER.remove_session(session_token)
             return False
         
-        return True       
+        return True     
+
+    def translate_path(self, path) -> str:
+        path = super().translate_path(path)
+        real_path = str(helper.refine_path(path))
+        if not real_path.startswith(str(FileState.ROOT_DIR)):
+            self.send_error(403, "Access denied")
+            return ""
+        
+        return real_path  
     
     
