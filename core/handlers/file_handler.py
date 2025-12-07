@@ -1,21 +1,22 @@
 import time
 import os
 import http.server as http_server
+from pathlib import Path
 from html import escape
 from urllib.parse import parse_qs, quote
-from .. import credentials, server
 from ..utils import logger
-from ..utils.security import Security
-from ..states import FileState, ServerState
+from .. import credentials, server
+from .security_mixin import SecurityMixin
+from ..state import FileState, ServerState
 
-class FileHandler(http_server.SimpleHTTPRequestHandler):
+class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
 
     def copyfile(self, source, outputfile):
         client_ip = self.client_address[0]
-        src = Security.translate_path(self, self.path)
+        src = self.translate_path(self.path)
         try:
             super().copyfile(source, outputfile)
         except (BrokenPipeError, ConnectionResetError):
@@ -29,7 +30,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
 
         if ServerState.SESSION_MANAGER.is_blocked(client_ip, current_time):
             self.send_response(403, "Access Denied")
-            Security.send_security_headers(self)
+            self.send_security_headers()
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(b'<h1>403 Forbidden</h1><p>Blocked due to excessive attempts. Try again later.</p>')
@@ -40,7 +41,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             if favicon_path.exists():
                 with favicon_path.open('rb') as f:
                     self.send_response(200)
-                    Security.send_security_headers(self, cache_time=FileState.CONFIG['cache_time_out_s'])
+                    self.send_security_headers(cache_time=FileState.CONFIG['cache_time_out_s'])
                     self.send_header('Content-Type', 'image/x-icon')
                     self.end_headers()
                     self.wfile.write(f.read())
@@ -50,7 +51,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
                 return
 
         if self.path == '/logout':
-            session_token = Security.get_session_token(self)
+            session_token = self.get_session_token()
             session = ServerState.SESSION_MANAGER.get_session(session_token)
             if session_token and session:
                 client_ip = session['ip']
@@ -58,7 +59,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
                 ServerState.SESSION_MANAGER.remove_session(session_token)
 
             self.send_response(302)
-            Security.send_security_headers(self)
+            self.send_security_headers()
             self.send_header('Location', '/')
             self.send_header('Set-Cookie', 'session_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/')
             self.end_headers()
@@ -88,7 +89,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
 
                 file_size = file_path.stat().st_size
                 self.send_response(200)
-                Security.send_security_headers(self, cache_time=FileState.CONFIG['cache_time_out_s'])
+                self.send_security_headers(cache_time=FileState.CONFIG['cache_time_out_s'])
                 self.send_header('Content-Type', content_type)
                 self.send_header('Content-Length', str(file_size))
                 self.end_headers()
@@ -105,17 +106,17 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
                 logger.emit_error(f"Serving file: {str(e)}")
                 return
 
-        if not Security.check_authentication(self):
+        if not self.check_authentication():
             self.send_login_page()
             return
 
         if self.path.endswith('.html'):
-            file_path = Security.translate_path(self, self.path)
+            file_path = Path(self.translate_path(self.path))
             if file_path.exists() and file_path.is_file():
                 try:
                     file_size = file_path.stat().st_size
                     self.send_response(200)
-                    Security.send_security_headers(self, cache_time=FileState.CONFIG['cache_time_out_s'])
+                    self.send_security_headers(cache_time=FileState.CONFIG['cache_time_out_s'])
                     self.send_header('Content-Type', 'text/html')
                     self.send_header('Content-Length', str(file_size))
                     self.end_headers()
@@ -139,7 +140,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
 
         if ServerState.SESSION_MANAGER.is_blocked(client_ip, current_time):
             self.send_response(403)
-            Security.send_security_headers(self)
+            self.send_security_headers()
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(b'<h1>403 Forbidden</h1><p>Blocked due to excessive attempts. Try again later.</p>')
@@ -162,7 +163,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             self.send_login_page(message="Invalid input values.")
             return
 
-        if not Security.validate_credentials(self, submitted_username, submitted_otp, timeout_seconds):
+        if not self.validate_credentials(submitted_username, submitted_otp, timeout_seconds):
             self.send_login_page(message="Invalid input! Please check your username and OTP format.")
             return
 
@@ -175,7 +176,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             ServerState.SESSION_MANAGER.add_session(session_token, client_ip, current_time + timeout_seconds)
 
             self.send_response(302)
-            Security.send_security_headers(self)
+            self.send_security_headers()
             self.send_header('Location', '/')
             self.send_header('Set-Cookie', f'session_token={session_token}; Path=/; HttpOnly; Max-Age={timeout_seconds}; SameSite=Strict')
             self.end_headers()
@@ -201,7 +202,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             html = FileState.LOGIN_HTML
             html = html.replace('{{message}}', message or '')
             self.send_response(200)
-            Security.send_security_headers(self)
+            self.send_security_headers()
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(html.encode('utf-8'))
@@ -231,7 +232,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             response = self.generate_html(file_list, displaypath)
             encoded = response.encode('utf-8')
             self.send_response(200)
-            Security.send_security_headers(self)
+            self.send_security_headers()
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(encoded)))
             self.end_headers()
@@ -259,6 +260,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
             """
             
         for entry in file_list:
+            entry = Path(entry)
             if entry.name.startswith('.'):
                 continue
 
@@ -294,7 +296,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
         return f"{a}/{b}"
 
     def generate_breadcrumbs(self, path):
-        path = path.replace('\\', '/').strip('/. ')
+        path = str(path).replace('\\', '/').strip('/. ')
         parts = path.split('/')
         breadcrumbs = ['<a href="/">🏠 Home</a>']
         current_path = ""
@@ -314,7 +316,7 @@ class FileHandler(http_server.SimpleHTTPRequestHandler):
         if is_dir:
             return "📁"
         
-        ext = os.path.splitext(filename)[1].lower()
+        ext = str(os.path.splitext(filename)[1]).lower()
         icons = {
             '.pdf': '📕', '.doc': '📄', '.docx': '📄', '.xls': '📊', '.xlsx': '📊', '.ppt': '📑',
             '.pptx': '📑', '.txt': '📝', '.csv': '📋', '.jpg': '🖼️', '.jpeg': '🖼️', '.png': '🖼️',

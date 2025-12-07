@@ -1,5 +1,5 @@
 from .utils import helper, logger
-from .states import FileState
+from .state import FileState
 
 # Custom Exception
 class ConfigError(Exception): pass

@@ -2,7 +2,7 @@ import time
 import http.server as http_server
 from . import credentials
 from .utils import logger
-from .states import ServerState, FileState
+from .state import ServerState, FileState
 from .handlers.file_handler import FileHandler
 
 class ServerError(Exception): pass
