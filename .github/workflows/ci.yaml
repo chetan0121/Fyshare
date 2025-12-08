@@ -1,5 +1,6 @@
 name: CI - Python Compatibility
 
+# Trigger on pushes or PRs to main + dev
 on:
   push:
     branches: [ main, dev ]
@@ -9,55 +10,80 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     strategy:
+      # Test against multiple Python versions
       matrix:
         python-version:
-          - "3.8"     # Explicitly test the oldest supported
+          - "3.8"
           - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"
-          - "3.13"    # Will use 3.13.x when available
+          - "3.13"   # will resolve to next available prerelease automatically
 
     steps:
+
+      # Checkout source code
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Install chosen Python version
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true  # enables Python 3.13 testing
 
-      - name: Display Python and package info
+      # Install Python dependencies if present
+      - name: Install dependencies (if exists)
+        run: |
+          if [ -f requirements.txt ]; then
+            echo "Installing from requirements.txt"
+            pip install -r requirements.txt
+          else
+            echo "No requirements.txt found, skipping installation"
+          fi
+
+      # Show Python context for debugging
+      - name: Display Python and installed packages
         run: |
           python --version
           pip list
 
-      - name: Run FyShare.py (full compatibility smoke test)
-        timeout-minutes: 3
+      # Smoke test startup: ensure the app does not crash on import/start
+      - name: Run FyShare.py (startup smoke test)
+        id: smoke
+        env:
+          FYSHARE_CI: "1"  # Flag for python code
         run: |
+          set +e   # Prevent job crash on failure, we will handle manually
+
           # Start the app in background
           python FyShare.py &
           APP_PID=$!
 
-          # Wait a moment for startup
+          # Allow some time for startup (not too long)
           sleep 10
 
-          # Simple health check: look for common startup success message
-          # Adjust this line if your app logs something specific like "Server running on http://0.0.0.0:5000"
+          # Check if running after delay
           if ps -p $APP_PID > /dev/null; then
-            echo "FyShare.py is still running → basic startup test passed"
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+            echo "FyShare.py OK: running after 10s"
           else
-            echo "FyShare.py crashed on startup!"
-            exit 1
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+            echo "FyShare.py FAILED: crashed during startup!"
           fi
 
-          # Gracefully stop the app
-          kill $APP_PID || true
-          wait $APP_PID || true
+          # Shutdown
+          kill $APP_PID 2>/dev/null || true
+          wait $APP_PID 2>/dev/null || true
 
-      - name: Run with timeout fallback (if app doesn't exit cleanly)
-        if: failure()
+      # Cleanup & fail the job if smoke test failed
+      - name: Force cleanup and mark failure
+        if: steps.smoke.outputs.passed == 'false'
         run: |
-          echo "Previous step failed, force-killing any remaining Python processes"
+          echo "Force-killing any remaining FyShare.py processes..."
           pkill -f FyShare.py || true
+          echo "CI FAILED: FyShare.py startup crash"
+          exit 1
