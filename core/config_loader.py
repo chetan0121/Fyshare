@@ -74,7 +74,7 @@ def check_config(CONFIG) -> None:
 
 
 # Load config (Normalize, verify and return as dict)
-def load_config(config_path) -> dict:
+def load_config(config_path) -> dict | None:
     try:
         raw_config = helper.get_json(config_path)
         CONFIG = normalize_config(raw_config)
