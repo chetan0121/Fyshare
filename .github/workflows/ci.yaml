@@ -1,6 +1,5 @@
 name: CI - Python Compatibility
 
-# Trigger on pushes or PRs to main + dev
 on:
   push:
     branches: [ main, dev ]
@@ -12,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
-      # Test against multiple Python versions
+      fail-fast: false
       matrix:
         python-version:
           - "3.8"
@@ -33,9 +32,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          allow-prereleases: true  # enables Python 3.13 testing
+          allow-prereleases: true
 
-      # Install Python dependencies if present
+      # Install dependencies
       - name: Install dependencies (if exists)
         run: |
           if [ -f requirements.txt ]; then
@@ -45,40 +44,42 @@ jobs:
             echo "No requirements.txt found, skipping installation"
           fi
 
-      # Show Python context for debugging
+      # Debug info
       - name: Display Python and installed packages
         run: |
+          echo "Python version:"
           python --version
+          echo
+          echo "Installed packages:"
           pip list
 
-      # Smoke test startup: ensure the app does not crash on import/start
-      - name: Run FyShare.py (startup smoke test)
+      # Smoke test
+      - name: Startup Smoke Test (FyShare.py)
         id: smoke
         env:
-          FYSHARE_CI: "1"  # Flag for python code
+          FYSHARE_CI: "1"
         run: |
-
-          # Start the app
-          python FyShare.py &
+          # Start the app with timeout so CI won't hang forever
+          timeout 10s python FyShare.py &
           APP_PID=$!
 
-          # wait a bit for startup
-          sleep 10
+          # Wait a bit for startup
+          sleep 5
 
-          # Check if still running
+          # Determine health
           if ps -p $APP_PID > /dev/null; then
             echo "passed=true" >> "$GITHUB_OUTPUT"
-            echo "FyShare.py OK: running after 10s"
+            echo "FyShare.py OK: running after 5s"
+            STATUS=0
           else
             echo "passed=false" >> "$GITHUB_OUTPUT"
             echo "FyShare.py FAILED: crashed during startup!"
+            STATUS=1
           fi
 
-          # Shutdown
+          # Cleanup app
           kill $APP_PID 2>/dev/null || true
           wait $APP_PID 2>/dev/null || true
           pkill -f FyShare.py 2>/dev/null || true
 
-          # Fail the step if app crashed
           exit $STATUS
-
