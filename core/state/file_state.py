@@ -12,17 +12,32 @@ class FileState:
     LOGIN_HTML: str
     FYSHARE_HTML: str
 
+    # Config path
     config_path: str | Path
-    raw_config: dict
+
+    # Base dir of project
+    base_dir: Path = None
+
+    # For github CI
+    ci_mod = False
 
     # Must set CONFIG before using this
     def set_root_path():
-        saved_path = helper.refine_path(FileState.CONFIG["root_directory"])
+        if FileState.ci_mod:
+            FileState.ROOT_DIR = FileState.base_dir
+            return
+
+        saved_path = Path(FileState.CONFIG["root_directory"]).expanduser()
+        try:
+           helper.is_valid_dir(saved_path)
+        except helper.UtilityError:
+            saved_path = Path("~").expanduser()
 
         # === Path selection by User ===
         print("\nSelect path to host:")
         print(f"1. Default ({saved_path})")
-        print( "2. Set new path")
+        print( "2. Save and use new path")
+        print( "3. Use temp path")
 
         # Handle invalid input
         try:
@@ -31,21 +46,20 @@ class FileState:
             raise StateError("Invalid input")
         
         # Handle user input
-        if opt == 2:
+        if opt == 2 or opt == 3:
             saved_path = input("\nEnter new path: ")
         elif opt != 1:
             raise StateError("Invalid option")
         
-        # Refine path again (for new path)
+        # Refine path
         path = helper.refine_path(saved_path)
 
         # Path validation
         helper.is_valid_dir(path)
         
         # Check if path is not in project folders to avoid conflicts
-        base_dir = Path(__file__).resolve().parents[1]
-        if base_dir in path.parents or path == base_dir:
-            raise StateError("Root directory cannot be inside FyShare folder")
+        if FileState.base_dir in path.parents or path == FileState.base_dir:
+            raise StateError(f"Root directory '{path}' cannot be inside FyShare folder")
         
         # Save new path to config as default
         if opt == 2:
@@ -57,6 +71,7 @@ class FileState:
                 key_update
             )
 
+        # Set root dir
         FileState.ROOT_DIR = path
 
     def set_templates(path):
