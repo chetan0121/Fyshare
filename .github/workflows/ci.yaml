@@ -57,16 +57,16 @@ jobs:
         env:
           FYSHARE_CI: "1"  # Flag for python code
         run: |
-          set +e   # Prevent job crash on failure, we will handle manually
+          # set +e   # Prevent job crash on failure, we will handle manually
 
-          # Start the app in background
+          # Start the app
           python FyShare.py &
           APP_PID=$!
 
-          # Allow some time for startup (not too long)
+          # wait a bit for startup
           sleep 10
 
-          # Check if running after delay
+          # Check if still running
           if ps -p $APP_PID > /dev/null; then
             echo "passed=true" >> "$GITHUB_OUTPUT"
             echo "FyShare.py OK: running after 10s"
@@ -78,12 +78,8 @@ jobs:
           # Shutdown
           kill $APP_PID 2>/dev/null || true
           wait $APP_PID 2>/dev/null || true
+          pkill -f FyShare.py 2>/dev/null || true
 
-      # Cleanup & fail the job if smoke test failed
-      - name: Force cleanup and mark failure
-        if: steps.smoke.outputs.passed == 'false'
-        run: |
-          echo "Force-killing any remaining FyShare.py processes..."
-          pkill -f FyShare.py || true
-          echo "CI FAILED: FyShare.py startup crash"
-          exit 1
+          # Fail the step if app crashed
+          exit $STATUS
+
