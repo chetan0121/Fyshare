@@ -1,6 +1,7 @@
 import string
 import secrets
 from .utils import logger
+from .utils.ansi_colors import *
 from .state import FileState, ServerState
 
 def generate_session_token(b_size:int = 32) -> str:
@@ -29,21 +30,21 @@ def generate_credentials(message = str("")):
         login_link = f"http://{ServerState.LOCAL_IP}:{ServerState.PORT}"
         
         # Printing New Server details
-        logger.print_custom(f"\n\n{message}", 93)
-        logger.print_custom("---------------------------------------------\n", 1)
+        ANSI_Manager.print_custom(f"\n\n{message}", Color.YELLOW, TextStyle.BRIGHT)
+        ANSI_Manager.print_custom("---------------------------------------------\n", TextStyle.BOLD)
 
-        logger.print_custom(f"Serving directory : \"{FileState.ROOT_DIR}\"", 1)
-        logger.print_custom(f"Open in browser   : {login_link}", 1)
+        ANSI_Manager.print_custom(f"Serving directory : \"{FileState.ROOT_DIR}\"", TextStyle.BOLD)
+        ANSI_Manager.print_custom(f"Open in browser   : {login_link}", TextStyle.BOLD)
 
-        logger.print_custom(f"\nLogin Details:", 36, 1)
+        ANSI_Manager.print_custom(f"\nLogin Details:", 36, TextStyle.BOLD)
         print(f"   • Username  : {ServerState.USERNAME}")
         print(f"   • OTP       : {ServerState.OTP}")
 
-        logger.print_custom(f"\nSettings:", 36, 1)
+        ANSI_Manager.print_custom(f"\nSettings:", 36, TextStyle.BOLD)
         print(f"   • Max users : {FileState.CONFIG['max_users']} Allowed")
         print(f"   • Time Out  : {FileState.CONFIG['idle_timeout_m']} minutes")
         
-        logger.print_custom("\n---------------------------------------------", 1)
+        ANSI_Manager.print_custom("\n---------------------------------------------", TextStyle.BOLD)
 
         # logging
         logger.log_info(f"Generated New Credentials", f"Message: {message or 'None'}")
