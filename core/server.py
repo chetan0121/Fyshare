@@ -35,43 +35,41 @@ def shutdown_server(msg=""):
     logger.log_info(f"{msg}\n", lvl_tag=False)
 
 def run_server():
-    ServerState.is_running = True
+    S = ServerState
+    S.is_running = True
 
-    Session = ServerState.SESSION_MANAGER
-    server = ServerState.Server
+    Session = S.SESSION_MANAGER
+    server = S.Server
     server.timeout = FileState.CONFIG["refresh_time_s"]
 
-    last_updated = ServerState.LAST_UPDATED_CRED
-    inactivity = ServerState.INACTIVITY_START
-
     # Constant configs
-    cleanup_time_s = int(FileState.CONFIG['cleanup_timeout_m'] * 60)
-    idle_timeout_m = int(FileState.CONFIG['idle_timeout_m'])
+    cleanup_time_s = FileState.CONFIG['cleanup_timeout_m'] * 60
+    idle_timeout_m = FileState.CONFIG['idle_timeout_m']
     idle_timeout_s = idle_timeout_m * 60
 
-    while ServerState.is_running:
+    while S.is_running:
         # Clean expired sessions & attempts and update current time
         Session.clean_expired_attempts()
         Session.clean_expired_sessions()
         current_time = time.monotonic()
 
         # Auto update credentials after cleanUp time
-        if last_updated is None:
-            last_updated = current_time
-        elif current_time - last_updated > cleanup_time_s:
+        if S.LAST_UPDATED_CRED is None:
+            S.LAST_UPDATED_CRED = current_time
+        elif current_time - S.LAST_UPDATED_CRED > cleanup_time_s:
             credentials.generate_credentials("Old Credentials expired!")
 
         # Handle inactivity timeout
-        if not Session.sessions and inactivity is None:
-            inactivity = current_time
+        if not Session.sessions and S.INACTIVITY_START is None:
+            S.INACTIVITY_START = current_time
         elif Session.sessions:
-            inactivity = None
+            S.INACTIVITY_START = None
 
         # Handle incoming server requests
         server.handle_request()
 
         # Shutdown server automatically after idle-timeout
-        if inactivity and (current_time - inactivity) > idle_timeout_s:
+        if S.INACTIVITY_START and (current_time - S.INACTIVITY_START) > idle_timeout_s:
             minutePrint = 'minute' if idle_timeout_m == 1 else 'minutes'
             shutdown_server(f"- Server closed successfully after {idle_timeout_m} {minutePrint} of inactivity")
 
