@@ -92,22 +92,22 @@ def backup_config():
         except KeyboardInterrupt:
             opt = "n"    
 
-        curr_config_path = FileState.config_path
+        config_path = FileState.config_path
 
         if opt == "y" or opt == "yes":
-            source_path = curr_config_path.with_name("config_example.json")
+            source_path = config_path.with_name("config_example.json")
 
             try:
-                helper.copy_file(source_path, curr_config_path)
+                helper.copy_file(source_path, config_path)
             except helper.UtilityError as e:
                 logger.print_error(str(e))
                 return False
 
-            logger.print_info(f"Config-file '{curr_config_path.name}' successfully restored from '{source_path.name}'", end="\n")
+            logger.print_info(f"Config-file '{config_path.name}' successfully restored from '{source_path.name}'", end="\n")
             return True
 
         elif opt == "n" or opt == "no":
-            logger.print_info(f"Reset cancelled by user, Current config '{curr_config_path.name}' was kept unchanged.", end="\n")
+            logger.print_info(f"Reset cancelled by user, Current config '{config_path.name}' was kept unchanged.", end="\n")
             logger.print_error("Failed to recover config: Reset cancelled")
             return False
         

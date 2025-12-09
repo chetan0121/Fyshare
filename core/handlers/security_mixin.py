@@ -51,7 +51,7 @@ class SecurityMixin():
         
         return True
 
-    def translate_path(self: req_handler, path):
+    def translate_path(self, path):
         path = super().translate_path(str(path))
         real_path = str(helper.refine_path(path))
         if not real_path.startswith(str(FileState.ROOT_DIR)):

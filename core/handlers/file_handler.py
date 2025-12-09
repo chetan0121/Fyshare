@@ -15,14 +15,10 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
 
     def copyfile(self, source, outputfile):
-        client_ip = self.client_address[0]
-        src = self.translate_path(self.path)
         try:
             super().copyfile(source, outputfile)
         except (BrokenPipeError, ConnectionResetError):
-            logger.emit_info(
-                f"User({client_ip}) disconnected while uploading: '{src}'"
-            )
+            pass
 
     def do_GET(self):
         client_ip = self.client_address[0]

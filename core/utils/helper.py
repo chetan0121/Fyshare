@@ -19,16 +19,20 @@ def get_local_ip() -> str:
     return "0.0.0.0"
 
 # Refine path
-def refine_path(path):
+def refine_path(path, do_resolve=True):
     path_str = str(path).strip()
     if not path_str:
         raise UtilityError("Path cannot be empty")
 
-    expanded = os.path.expandvars(path_str)
-    return Path(expanded).expanduser().resolve()
+    path_str = os.path.expandvars(path_str)
+    final_path = Path(path_str).expanduser()
+    if do_resolve:
+        final_path = final_path.resolve()
+
+    return final_path    
 
 # Check if its valid directory
-def is_valid_dir(path: Path | str):
+def is_valid_dir(path):
     """
     Validates that the given path is an existing, real directory.
     Returns the Path object if valid (so you can chain calls).
@@ -36,27 +40,27 @@ def is_valid_dir(path: Path | str):
     Raises:
         UtilityError - with clear message on any failure
     """
-    # Convert string to Path
-    path = Path(path)
+    path = str(path)
+    p = Path(path)
 
     # Empty or whitespace-only path
-    if not path or str(path).strip() == "":
+    if not path or path.strip() == "":
         raise UtilityError("Path cannot be empty")
-
+    
     # Doesn't exist
-    if not path.exists():
+    if not p.exists():
         raise UtilityError(f"Path '{path}' does not exist")
 
     # Exists but is a file
-    if path.is_file():
+    if p.is_file():
         raise UtilityError(f"Path '{path}' is a file, not a directory")
 
     # Exists but is not a directory
-    if not path.is_dir():
+    if not p.is_dir():
         raise UtilityError(f"Path '{path}' is not a directory")
 
     # If no read permission
-    if not os.access(path, os.R_OK):
+    if not os.access(p, os.R_OK):
         raise UtilityError(f"No read permission for directory '{path}'")
 
 # Get Configuration
