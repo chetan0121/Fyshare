@@ -91,10 +91,8 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                 self.end_headers()
 
                 with file_path.open('rb') as f:
-                    chunk = f.read(65536)   # 64KB chunk
-                    while chunk:
+                    while (chunk := f.read(65536)): # 64KB chunk
                         self.wfile.write(chunk)
-                        chunk = f.read(65536)
                 return  # Exit after success   
             
             except Exception as e:
@@ -118,10 +116,8 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                     self.end_headers()
 
                     with file_path.open('rb') as f:
-                        chunk = f.read(8192)
-                        while chunk:
+                        while (chunk:= f.read(8192)):   # 8KB chunk
                             self.wfile.write(chunk)
-                            chunk = f.read(8192)
                 except Exception as e:
                     self.send_error(500, f"Error: Something went wrong.")
                     logger.emit_error(f"Serving html file: {str(e)}")
