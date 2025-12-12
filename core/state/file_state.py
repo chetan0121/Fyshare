@@ -16,10 +16,19 @@ class FileState:
     config_path: str | Path
 
     # Base dir of project
-    base_dir: Path = None
+    base_dir: Path
 
     # For github CI
     ci_mod = False
+
+    # Session timeout options (CONSTANT)
+    OPTIONS = [
+        (5, "5 minutes"),
+        (15, "15 minutes"),
+        (30, "30 minutes"),
+        (60, "1 hour"),
+        (120, "2 hours"),
+    ]
 
     # Must set CONFIG before using this
     def set_root_path():
@@ -80,11 +89,22 @@ class FileState:
         
         try:
             with (path / 'login.html').open('r', encoding="utf-8") as f:
-                FileState.LOGIN_HTML = f.read()
+                login_html = f.read()
             with (path / 'fyshare.html').open('r', encoding="utf-8") as f:
                 FileState.FYSHARE_HTML = f.read()  
         except (OSError, UnicodeDecodeError) as e:
             raise StateError(f"Reading template: {str(e)}") from e
+        
+        # Set timeout options in login template
+        FileState.OPTIONS.sort(key=lambda x: x[0])
+        
+        opt_list_html = [
+            f'<option value="{mins*60}">{label}</option>'
+            for mins, label in FileState.OPTIONS
+        ]    
+
+        options_html = "\n".join(opt_list_html)
+        FileState.LOGIN_HTML = login_html.replace('{{options}}', options_html)
 
     def set_static_dir(path):
         path = helper.refine_path(path)
