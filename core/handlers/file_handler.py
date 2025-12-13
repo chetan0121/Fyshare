@@ -17,7 +17,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
     def copyfile(self, source, outputfile):
         try:
             super().copyfile(source, outputfile)
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 
     def do_GET(self):

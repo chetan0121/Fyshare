@@ -64,7 +64,7 @@ def get_json(path):
     return config
 
 # Update json file with func as provided
-def update_json(path: Path | str, update_func):
+def update_json(path: Path, update_func):
     """
     Atomically update a JSON file using a callback function.
     Thread-safe and works on Windows.

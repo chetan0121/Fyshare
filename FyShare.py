@@ -10,24 +10,24 @@ from core.state import FileState, ServerState, StateError
 from core.utils import logger, helper
 
 def main() -> None:
-    # Check if run is from github CI
+    # Set true, if run is from github CI
     FileState.ci_mod = os.getenv("FYSHARE_CI", "0") == "1"
 
-    # Current folder
+    # Get current folder as path
     FileState.base_dir = Path(__file__).parent
     this_dir = str(FileState.base_dir)
 
     # Setup logger
     logger.set_logger(f"{this_dir}/logs/server.log")
 
-    # Load and validate configuration
+    # Load configuration
     FileState.config_path = helper.refine_path(f"{this_dir}/config.json", False)
     FileState.CONFIG = load_config(FileState.config_path)
 
-    # Request for backup if config isn't valid/found
+    # Request for backup if config is invalid or not found
     if not FileState.CONFIG:
-        if not backup_config(): return
-        
+        if not backup_config():
+            return
         FileState.CONFIG = load_config(FileState.config_path)
     
     # Setup directories (root, templates, static)
@@ -42,7 +42,7 @@ def main() -> None:
         logger.print_info("Operation cancelled by user", prefix="\n\n", end="\n")
         return
 
-    # Initialize core components
+    # Initialize core components for server
     ServerState.SESSION_MANAGER = SessionManager()
     ServerState.init_server_state()
     server.init_server()
@@ -57,7 +57,7 @@ def main() -> None:
     credentials.generate_credentials("New server started")
     print("Refer to ReadMe.md for secure file-sharing instructions.\n")
 
-    # Start the server (loop)
+    # Start the server
     try:
         server.run_server()
     except KeyboardInterrupt:

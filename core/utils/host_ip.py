@@ -94,7 +94,6 @@ def get_local_ip_windows() -> str:
         if result.returncode == 0:
             ip = _parse_ipconfig_output(result.stdout)
             if ip:
-                logger.print_info(f"Got IPConfig: {ip}")
                 return ip
     except Exception as e:
         logger.print_warning(f"Failed to get ip using ipconfig method: {str(e)}")
@@ -231,7 +230,9 @@ def get_local_ip_fallback() -> str:
                 ip = ip_info[4][0]
                 if is_valid_ip(ip):
                     return ip
-    except:
+    except Exception as e:
+        logger.print_warning(f"Failed to get IP in fallback method: {e}")
         pass
     
+    logger.print_warning(f"Failed to determine the device'sLocal IP address, Falling back to IP[0.0.0.0]")
     return "0.0.0.0"
