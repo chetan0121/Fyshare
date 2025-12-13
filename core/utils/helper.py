@@ -1,22 +1,8 @@
 import json
-import socket
 import os
 from pathlib import Path
 
 class UtilityError(Exception): pass
-
-def get_local_ip() -> str:
-    # Connect to a public DNS server to discover outgoing interface
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s_conn:
-        s_conn.connect(("8.8.8.8", 80))
-        local_ip = str(s_conn.getsockname()[0])
-        
-        # Verify it's not a localhost
-        if not local_ip.startswith("127."):
-            return local_ip
-    
-    # Bind to all available network interfaces (for LAN)
-    return "0.0.0.0"
 
 # Refine path
 def refine_path(path, do_resolve=True):

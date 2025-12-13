@@ -27,11 +27,7 @@ class ServerState:
     def init_server_state():
         """Only run this before starting the server (using server.init_server)"""
         # Get local ip
-        ip = host_ip.get_local_ip()
-        if ip:
-            ServerState.LOCAL_IP = ip
-        else:
-            ServerState.LOCAL_IP = "127.0.0.1"
+        ServerState.LOCAL_IP = host_ip.get_local_ip()
 
         # Select random port from 1500 to 9500
         ServerState.PORT = secrets.choice(range(1500, 9500))

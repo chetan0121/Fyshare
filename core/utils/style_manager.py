@@ -94,7 +94,7 @@ class Style:
 
         return f"{escape_seq}{text}{Style.RESET}"
     
-    def print_custom(txt="", *codes, prefix="", end="\n"):
+    def print_style(txt="", *codes, prefix="", end="\n"):
         """
         Prints styled text to the console using ANSI escape codes.
 

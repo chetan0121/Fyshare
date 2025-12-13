@@ -31,7 +31,7 @@ def shutdown_server(msg=""):
             return
 
     # Print and log the msg
-    logger.print_info(f"{msg}", lvl_tag=False, prefix="\n\n", end="\n")
+    logger.print_info(msg, lvl_tag=False, prefix="\n\n")
     logger.log_info(f"{msg}\n", lvl_tag=False)
 
 def run_server():

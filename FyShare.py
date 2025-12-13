@@ -50,7 +50,7 @@ def main() -> None:
     # First-time startup banner
     startup_url = f"http://{ServerState.LOCAL_IP}:{ServerState.PORT}"
     logger.log_info(
-        f"\n- Server started → {startup_url} | Serving: '{FileState.ROOT_DIR}'"
+        f"- Server started → {startup_url} | Serving: '{FileState.ROOT_DIR}'"
     )
 
     # Generate and print credentials

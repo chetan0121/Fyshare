@@ -4,7 +4,7 @@
   "idle_timeout_minutes": 5,
   "refresh_time_seconds": 1,
   "max_attempts_per_ip": 5,
-  "max_total_attempts_per_ip": 15,
+  "max_total_attempts_per_ip": 10,
   "cooldown_seconds": 60,
   "block_time_minutes": 5,
   "cleanup_timeout_minutes": 15,

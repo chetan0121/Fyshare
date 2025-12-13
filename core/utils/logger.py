@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from .ansi_colors import ANSI_Manager, Color, TextStyle
+from .style_manager import *
 
 def set_logger(file: str | Path) -> None:
     """
@@ -58,7 +58,7 @@ def __print_level(
     if is_bold:
         codes.append(TextStyle.BOLD)
 
-    ANSI_Manager.print_custom(txt, *codes, prefix=prefix, end=end)
+    Style.print_style(txt, *codes, prefix=prefix, end=end)
 
 
 # ========= Printer functions =========

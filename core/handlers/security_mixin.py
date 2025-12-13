@@ -30,8 +30,8 @@ class SecurityMixin():
         is_valid_otp = bool(re.fullmatch(r'\d{6}', otp))
 
         # Validate timeout: must be between min and max allowed seconds in Options
-        lowest_opt = ServerState.OPTIONS[0][0]*60
-        highest_opt = ServerState.OPTIONS[-1][0]*60
+        lowest_opt = FileState.OPTIONS[0][0]*60
+        highest_opt = FileState.OPTIONS[-1][0]*60
         is_valid_timeout = bool(lowest_opt <= timeout <= highest_opt)
 
         return is_valid_username and is_valid_otp and is_valid_timeout 
