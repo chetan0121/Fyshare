@@ -11,6 +11,9 @@ def init_server():
     """
     Run this only after -> state.init_server_state()
     """
+    if not ServerState.is_server_state:
+        logger.print_error("Can't run init_server before init_server_state")
+
     port = ServerState.PORT
     try:
         ServerState.Server = http_server.ThreadingHTTPServer(("", port), FileHandler)
@@ -35,12 +38,15 @@ def shutdown_server(msg=""):
     logger.log_info(f"{msg}\n", lvl_tag=False)
 
 def run_server():
+    if not ServerState.SESSION_MANAGER:
+        raise AttributeError("Instance of SessionManager not found")
+
     S = ServerState
     S.is_running = True
 
-    Session = S.SESSION_MANAGER
     server = S.Server
     server.timeout = FileState.CONFIG["refresh_time_s"]
+    Session = S.SESSION_MANAGER
 
     # Constant configs
     cleanup_time_s = FileState.CONFIG['cleanup_timeout_m'] * 60
@@ -70,6 +76,9 @@ def run_server():
 
         # Shutdown server automatically after idle-timeout
         if S.INACTIVITY_START and (current_time - S.INACTIVITY_START) > idle_timeout_s:
-            minutePrint = 'minute' if idle_timeout_m == 1 else 'minutes'
-            shutdown_server(f"- Server closed successfully after {idle_timeout_m} {minutePrint} of inactivity")
+            min_or_mins = 'minute' if idle_timeout_m == 1 else 'minutes'
+            inactivity_m = f"{idle_timeout_m} {min_or_mins}"
+            shutdown_server(
+                f"- Server closed successfully after {inactivity_m} of inactivity"
+            )
 
