@@ -2,8 +2,8 @@ import time
 import os
 import http.server as http_server
 from pathlib import Path
-from html import escape
-from urllib.parse import parse_qs, quote
+from urllib.parse import parse_qs
+from .html_handler import HTMLHandler
 from ..utils import logger
 from .. import credentials, server
 from .security_mixin import SecurityMixin
@@ -21,15 +21,16 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             pass
 
     def do_GET(self):
+        session_manager = ServerState.SESSION_MANAGER
         client_ip = self.client_address[0]
         current_time = time.monotonic()
 
-        if ServerState.SESSION_MANAGER.is_blocked(client_ip, current_time):
+        if session_manager.is_blocked(client_ip, current_time):
             self.send_response(403, "Access Denied")
             self.send_security_headers()
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
-            self.wfile.write(b'<h1>403 Forbidden</h1><p>Blocked due to excessive attempts. Try again later.</p>')
+            self.wfile.write(HTMLHandler.blocked_html_message)
             return
 
         if self.path == '/favicon.ico':
@@ -48,11 +49,11 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
 
         if self.path == '/logout':
             session_token = self.get_session_token()
-            session = ServerState.SESSION_MANAGER.get_session(session_token)
+            session = session_manager.get_session(session_token)
             if session_token and session:
                 client_ip = session['ip']
                 logger.emit_info(f"User({client_ip}) logged-out")
-                ServerState.SESSION_MANAGER.remove_session(session_token)
+                session_manager.remove_session(session_token)
 
             self.send_response(302)
             self.send_security_headers()
@@ -135,7 +136,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             self.send_security_headers()
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
-            self.wfile.write(b'<h1>403 Forbidden</h1><p>Blocked due to excessive attempts. Try again later.</p>')
+            self.wfile.write(HTMLHandler.blocked_html_message)
             return
         
         if ServerState.SESSION_MANAGER.is_inCool(client_ip, current_time):
@@ -221,7 +222,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         displaypath = os.path.relpath(path, str(FileState.ROOT_DIR)).strip('/.') or '.'
 
         try:
-            response = self.generate_html(file_list, displaypath)
+            response = HTMLHandler.generate_html(file_list, displaypath)
             encoded = response.encode('utf-8')
             self.send_response(200)
             self.send_security_headers()
@@ -233,102 +234,4 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             self.send_error(500, f"Error generating response.")
             logger.emit_error(f"Generating response: {str(e)}")
 
-    def generate_html(self, file_list, displaypath):
-        template = FileState.FYSHARE_HTML
-        breadcrumbs = self.generate_breadcrumbs(displaypath)
-        table_rows = ""
-        if displaypath != '.':
-            table_rows += """
-                <tr>
-                    <td>
-                        <a href="../">
-                            <span class="icon">📁</span>
-                            <span> /.. </span>
-                        </a>
-                    </td>
-                    <td class="size">-</td>
-                    <td></td>
-                </tr>
-            """
-            
-        for entry in file_list:
-            entry = Path(entry)
-            if entry.name.startswith('.'):
-                continue
-
-            try:
-                is_dir = entry.is_dir()
-                display_name = escape(entry.name)
-                link_name = quote(entry.name)
-                icon = self.get_file_icon(entry.name, is_dir)
-                size = '-' if is_dir else self.format_size(entry.stat().st_size)
-                action = self.get_action_button(entry.name, is_dir)
-                table_rows += f"""
-                    <tr>
-                        <td>
-                            <a href="{link_name}">
-                                <span class="icon">{icon}</span>
-                                <span>{display_name}</span>
-                            </a>
-                        </td>
-                        <td class="size">{size}</td>
-                        <td>{action}</td>
-                    </tr>"""
-            except Exception as e:
-                logger.print_error(f"Processing {entry.name}: {str(e)}")
-                continue
     
-        return template.replace('{{breadcrumbs}}', breadcrumbs).replace('{{table_rows}}', table_rows)
-
-    def join_posix(self, a, b):
-        a = (a or "").rstrip('/')
-        b = (b or "").lstrip('/')
-        if not a:
-            return b
-        return f"{a}/{b}"
-
-    def generate_breadcrumbs(self, path):
-        path = str(path).replace('\\', '/').strip('/. ')
-        parts = path.split('/')
-        breadcrumbs = ['<a href="/">🏠 Home</a>']
-        current_path = ""
-
-        for part in parts:
-            if not part or part == '.':
-                continue
-
-            current_path = self.join_posix(current_path, part)
-            breadcrumbs.append(
-                f'<span class="breadcrumb-sep">/</span>'
-                f'<a href="/{quote(current_path)}">{escape(part)}</a>'
-            )
-        return ''.join(breadcrumbs)
-
-    def get_file_icon(self, filename, is_dir):
-        if is_dir:
-            return "📁"
-        
-        ext = str(os.path.splitext(filename)[1]).lower()
-        icons = {
-            '.pdf': '📕', '.doc': '📄', '.docx': '📄', '.xls': '📊', '.xlsx': '📊', '.ppt': '📑',
-            '.pptx': '📑', '.txt': '📝', '.csv': '📋', '.jpg': '🖼️', '.jpeg': '🖼️', '.png': '🖼️',
-            '.gif': '🖼️', '.bmp': '🖼️', '.svg': '🖼️', '.mp3': '🎵', '.wav': '🎵', '.ogg': '🎵',
-            '.mp4': '🎬', '.avi': '🎬', '.mkv': '🎬', '.zip': '📦', '.rar': '📦', '.7z': '📦',
-            '.apk': '📱', '.exe': '⚙️', '.py': '🐍', '.html': '🌐', '.js': '📜', '.json': '📜'
-        }
-        return icons.get(ext, '📄')
-
-    def get_action_button(self, filename, is_dir):
-        if is_dir:
-            return ""
-        return f'<a class="download-btn" href="{quote(filename)}" download>⬇️ Download</a>'
-
-    def format_size(self, size_bytes):
-        try:
-            for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-                if size_bytes < 1024.0:
-                    return f"{size_bytes:.1f} {unit}"
-                size_bytes /= 1024.0
-            return f"{size_bytes:.1f} PB"
-        except TypeError:
-            return "N/A"
