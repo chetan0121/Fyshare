@@ -13,7 +13,7 @@ class FileState:
     FYSHARE_HTML: str
 
     # Config path
-    config_path: str | Path
+    config_path: Path
 
     # Base dir of project
     base_dir: Path
@@ -32,6 +32,9 @@ class FileState:
 
     # Must set CONFIG before using this
     def set_root_path():
+        if not FileState.CONFIG:
+            raise StateError("Refined CONFIG not found")
+        
         if FileState.ci_mod:
             FileState.ROOT_DIR = FileState.base_dir
             return
@@ -84,7 +87,7 @@ class FileState:
         FileState.ROOT_DIR = path
 
     def set_templates(path):
-        path = helper.refine_path(path)
+        path = helper.refine_path(path, False)
         helper.is_valid_dir(path)
         
         try:
@@ -107,6 +110,6 @@ class FileState:
         FileState.LOGIN_HTML = login_html.replace('{{options}}', options_html)
 
     def set_static_dir(path):
-        path = helper.refine_path(path)
+        path = helper.refine_path(path, False)
         helper.is_valid_dir(path)
         FileState.STATIC_DIR = path   
