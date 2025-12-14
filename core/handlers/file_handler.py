@@ -21,7 +21,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             pass
 
     def do_GET(self):
-        session_manager = ServerState.SESSION_MANAGER
+        session_manager = ServerState.session_manager
         client_ip = self.client_address[0]
         current_time = time.monotonic()
 
@@ -130,8 +130,9 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
     def do_POST(self):
         client_ip = self.client_address[0]
         current_time = time.monotonic()
+        Session = ServerState.session_manager
 
-        if ServerState.SESSION_MANAGER.is_blocked(client_ip, current_time):
+        if Session.is_blocked(client_ip, current_time):
             self.send_response(403)
             self.send_security_headers()
             self.send_header('Content-Type', 'text/html; charset=utf-8')
@@ -139,7 +140,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             self.wfile.write(HTMLHandler.blocked_html_message)
             return
         
-        if ServerState.SESSION_MANAGER.is_inCool(client_ip, current_time):
+        if Session.is_inCool(client_ip, current_time):
             self.send_login_page(message="Too many attempts. Try again later.")
             return
         
@@ -157,16 +158,16 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             return
 
         if not self.validate_credentials(submitted_username, submitted_otp, timeout_seconds):
-            self.send_login_page(message="Invalid input! Please check your username and OTP format.")
+            self.send_login_page(message="Invalid input! Please check your username and otp format.")
             return
 
-        if len(ServerState.SESSION_MANAGER.sessions) >= FileState.CONFIG['max_users']:
+        if len(Session.sessions) >= FileState.CONFIG['max_users']:
             self.send_login_page(message="Server busy—too many users. Try again later.")
             return
         
-        if submitted_username == ServerState.USERNAME and submitted_otp == ServerState.OTP:
+        if submitted_username == ServerState.username and submitted_otp == ServerState.otp:
             session_token = credentials.generate_session_token()
-            ServerState.SESSION_MANAGER.add_session(session_token, client_ip, current_time + timeout_seconds)
+            Session.add_session(session_token, client_ip, current_time + timeout_seconds)
 
             self.send_response(302)
             self.send_security_headers()
@@ -174,21 +175,21 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             self.send_header('Set-Cookie', f'session_token={session_token}; Path=/; HttpOnly; Max-Age={timeout_seconds}; SameSite=Strict')
             self.end_headers()
 
-            logger.emit_info(f"User[{client_ip}] logged-in")
+            logger.emit_info(f"User({client_ip}) logged-in")
         else:
-            ServerState.SESSION_MANAGER.update_attempts(client_ip, current_time)
+            Session.update_attempts(client_ip, current_time)
 
             with ServerState.credentials_lock:
-                ServerState.GLOBAL_TOTAL_ATTEMPTS += 1
+                ServerState.global_attempts += 1
 
-            attempts = ServerState.GLOBAL_TOTAL_ATTEMPTS
+            attempts = ServerState.global_attempts
             if attempts > FileState.CONFIG['max_users']*100:
                 server.shutdown_server(f"- Security shutdown triggered after {attempts} rapid login attempts")
 
             if attempts % (FileState.CONFIG['max_users']*10) == 0:
                 credentials.generate_credentials("Too many failed attempts on server")
 
-            self.send_login_page(message="Invalid username or OTP.")
+            self.send_login_page(message="Invalid username or otp.")
 
     def send_login_page(self, message=None):
         try:
@@ -219,10 +220,10 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             return None
 
         file_list.sort(key=lambda a: (not a.is_dir(), a.name.lower()))
-        displaypath = os.path.relpath(path, str(FileState.ROOT_DIR)).strip('/.') or '.'
+        display_path = os.path.relpath(path, str(FileState.ROOT_DIR)).strip('/.') or '.'
 
         try:
-            response = HTMLHandler.generate_html(file_list, displaypath)
+            response = HTMLHandler.generate_html(file_list, display_path)
             encoded = response.encode('utf-8')
             self.send_response(200)
             self.send_security_headers()

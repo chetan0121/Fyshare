@@ -26,7 +26,7 @@ class SecurityMixin():
         # Validate username: 6–20 alphanumeric characters
         is_valid_username = bool(re.fullmatch(r'[a-zA-Z0-9]{6,20}', username))
 
-        # Validate OTP: exactly 6 digits
+        # Validate otp: exactly 6 digits
         is_valid_otp = bool(re.fullmatch(r'\d{6}', otp))
 
         # Validate timeout: must be between min and max allowed seconds in Options
@@ -41,12 +41,12 @@ class SecurityMixin():
         if not session_token:
             return False
         
-        session_data = ServerState.SESSION_MANAGER.get_session(session_token)
+        session_data = ServerState.session_manager.get_session(session_token)
         if not session_data:
             return False
         
         if time.monotonic() >= session_data['expiry']:
-            ServerState.SESSION_MANAGER.remove_session(session_token)
+            ServerState.session_manager.remove_session(session_token)
             return False
         
         return True
