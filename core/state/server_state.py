@@ -10,31 +10,36 @@ class ServerState:
     is_running = False
 
     # Credentials
-    OTP: str
-    USERNAME: str
+    otp: str
+    username: str
     credentials_lock = threading.Lock()
 
     # Manager
-    SESSION_MANAGER: SessionManager = None
+    session_manager: SessionManager = None
 
     # States of server
-    PORT: str
-    LOCAL_IP: str
-    GLOBAL_TOTAL_ATTEMPTS: int = 0
-    LAST_UPDATED_CRED: float | None = None
-    INACTIVITY_START: float | None = None
+    port: str
+    local_ip: str
+    global_attempts: int = 0
+    last_credential_update_ts: float | None = None
+    inactivity_start_ts: float | None = None
 
-    # To check init_server() runs only after init_server_state()
+    # init_server flag
     is_server_state = False
 
     def init_server_state():
-        """Only run this before starting the server (using server.init_server)"""
+        """
+        Initialize server states
+        - Get and set local_ip
+        - Select port randomly
+        Note: Only run this before starting the server (using server.init_server)
+        """
         ServerState.is_server_state = True
 
         # Get local ip
-        ServerState.LOCAL_IP = host_ip.get_local_ip()
+        ServerState.local_ip = host_ip.get_local_ip()
 
         # Select random port from 1500 to 9500
-        ServerState.PORT = secrets.choice(range(1500, 9500))
+        ServerState.port = secrets.choice(range(1500, 9500))
         
         

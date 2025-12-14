@@ -9,12 +9,14 @@ class ServerError(Exception): pass
 
 def init_server():
     """
-    Run this only after -> state.init_server_state()
+    Initialize server
+    - Create and set instance of ThreadingHTTPServer with Custom Filehandler
+    Note: Run this only after -> state.init_server_state()
     """
     if not ServerState.is_server_state:
         logger.print_error("Can't run init_server before init_server_state")
 
-    port = ServerState.PORT
+    port = ServerState.port
     try:
         ServerState.Server = http_server.ThreadingHTTPServer(("", port), FileHandler)
     except OSError as e:
@@ -38,47 +40,55 @@ def shutdown_server(msg=""):
     logger.log_info(f"{msg}\n", lvl_tag=False)
 
 def run_server():
-    if not ServerState.SESSION_MANAGER:
+    # Make Alias of server
+    S = ServerState
+
+    # Check is server and session_manager initialized
+    if not S.Server or not S.session_manager:
         raise AttributeError("Instance of SessionManager not found")
 
-    S = ServerState
-    S.is_running = True
+    # Alias
+    server         = S.Server
+    session        = S.session_manager
 
-    server = S.Server
+    # Set refresh time
     server.timeout = FileState.CONFIG["refresh_time_s"]
-    Session = S.SESSION_MANAGER
 
     # Constant configs
     cleanup_time_s = FileState.CONFIG['cleanup_timeout_m'] * 60
     idle_timeout_m = FileState.CONFIG['idle_timeout_m']
     idle_timeout_s = idle_timeout_m * 60
 
+    # Server loop
+    S.is_running = True
     while S.is_running:
         # Clean expired sessions & attempts and update current time
-        Session.clean_expired_attempts()
-        Session.clean_expired_sessions()
+        session.clean_expired_attempts()
+        session.clean_expired_sessions()
         current_time = time.monotonic()
 
         # Auto update credentials after cleanUp time
-        if S.LAST_UPDATED_CRED is None:
-            S.LAST_UPDATED_CRED = current_time
-        elif current_time - S.LAST_UPDATED_CRED > cleanup_time_s:
+        if S.last_credential_update_ts is None:
+            S.last_credential_update_ts = current_time
+        elif current_time - S.last_credential_update_ts > cleanup_time_s:
             credentials.generate_credentials("Old Credentials expired!")
 
         # Handle inactivity timeout
-        if not Session.sessions and S.INACTIVITY_START is None:
-            S.INACTIVITY_START = current_time
-        elif Session.sessions:
-            S.INACTIVITY_START = None
+        if not session.sessions and S.inactivity_start_ts is None:
+            S.inactivity_start_ts = current_time
+        elif session.sessions:
+            S.inactivity_start_ts = None
 
         # Handle incoming server requests
         server.handle_request()
 
         # Shutdown server automatically after idle-timeout
-        if S.INACTIVITY_START and (current_time - S.INACTIVITY_START) > idle_timeout_s:
-            min_or_mins = 'minute' if idle_timeout_m == 1 else 'minutes'
-            inactivity_m = f"{idle_timeout_m} {min_or_mins}"
-            shutdown_server(
-                f"- Server closed successfully after {inactivity_m} of inactivity"
-            )
+        if S.inactivity_start_ts is None:
+            continue
 
+        if (current_time - S.inactivity_start_ts) > idle_timeout_s:
+            min_or_mins = 'minute' if idle_timeout_m == 1 else 'minutes'
+            shutdown_server(
+                f"- Server closed successfully after "
+                f"{idle_timeout_m} {min_or_mins} of inactivity"
+            )

@@ -4,8 +4,8 @@ from .state import FileState
 # Custom Exception
 class ConfigError(Exception): pass
 
-# Normalize value types of config
 def normalize_config(config) -> dict:
+    """Normalize value types of config"""
     try:
         CONFIG = {
             # Root directory served by the server
@@ -43,8 +43,8 @@ def normalize_config(config) -> dict:
 
     return CONFIG
 
-# Verify config values
 def check_config(CONFIG) -> None:
+    """Validates config values"""
     if CONFIG['max_users'] < 1 or CONFIG['max_users'] > 100:
         raise ConfigError("'max_users' must be a natural number from 1 to 100")
 
@@ -73,8 +73,8 @@ def check_config(CONFIG) -> None:
         raise ConfigError("'default_cache_time_out_seconds' must be between 0 and 86400")
 
 
-# Load config (Normalize, verify and return as dict)
 def load_config(config_path) -> dict | None:
+    """Load config (Normalize, validate and return as dict)"""
     try:
         raw_config = helper.get_json(config_path)
         CONFIG = normalize_config(raw_config)
@@ -86,32 +86,32 @@ def load_config(config_path) -> dict | None:
     return CONFIG
 
 def backup_config():
-        logger.print_info("Do you want to reset the current config to default?", end="\n")
+    logger.print_info("Do you want to reset the current config to default?", end="\n")
+    try:
+        opt = input("Enter (y/n) => ").strip().lower()
+    except KeyboardInterrupt:
+        opt = "n"    
+
+    config_path = FileState.config_path
+
+    if opt == "y" or opt == "yes":
+        source_path = config_path.with_name("config_example.json")
+
         try:
-            opt = input("Enter (y/n) => ").strip().lower()
-        except KeyboardInterrupt:
-            opt = "n"    
-
-        config_path = FileState.config_path
-
-        if opt == "y" or opt == "yes":
-            source_path = config_path.with_name("config_example.json")
-
-            try:
-                helper.copy_file(source_path, config_path)
-            except helper.UtilityError as e:
-                logger.print_error(str(e))
-                return False
-
-            logger.print_info(f"Config-file '{config_path.name}' successfully restored from '{source_path.name}'", end="\n")
-            return True
-
-        elif opt == "n" or opt == "no":
-            logger.print_info(f"Reset cancelled by user, Current config '{config_path.name}' was kept unchanged.", end="\n")
-            logger.print_error("Failed to recover config: Reset cancelled")
+            helper.copy_file(source_path, config_path)
+        except helper.UtilityError as e:
+            logger.print_error(str(e))
             return False
-        
-        else:
-            logger.print_error("Failed to recover config: Invalid input!")
-            return False
+
+        logger.print_info(f"Config-file '{config_path.name}' successfully restored from '{source_path.name}'", end="\n")
+        return True
+
+    elif opt == "n" or opt == "no":
+        logger.print_info(f"Reset cancelled by user, Current config '{config_path.name}' was kept unchanged.", end="\n")
+        logger.print_error("Failed to recover config: Reset cancelled")
+        return False
+    
+    else:
+        logger.print_error("Failed to recover config: Invalid input!")
+        return False
     

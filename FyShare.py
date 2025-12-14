@@ -43,12 +43,12 @@ def main() -> None:
         return
 
     # Initialize core components for server
-    ServerState.SESSION_MANAGER = SessionManager()
+    ServerState.session_manager = SessionManager()
     ServerState.init_server_state()
     server.init_server()
 
     # First-time startup banner
-    startup_url = f"http://{ServerState.LOCAL_IP}:{ServerState.PORT}"
+    startup_url = f"http://{ServerState.local_ip}:{ServerState.port}"
     logger.log_info(
         f"- Server started → {startup_url} | Serving: '{FileState.ROOT_DIR}'"
     )

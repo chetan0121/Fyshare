@@ -24,27 +24,35 @@ def generate_otp(length=6) -> str:
 
 def generate_credentials(message = str("")):
     with ServerState.credentials_lock:
-        ServerState.LAST_UPDATED_CRED = None
-        ServerState.USERNAME = generate_username()
-        ServerState.OTP = generate_otp()
-        login_link = f"http://{ServerState.LOCAL_IP}:{ServerState.PORT}"
+        # Generate new username and otp
+        ServerState.last_credential_update_ts = None
+        ServerState.username = generate_username()
+        ServerState.otp = generate_otp()
+
+        # Details to print
+        root_dir = f"\"{FileState.ROOT_DIR}\""
+        login_link = f"http://{ServerState.local_ip}:{ServerState.port}"
+        break_line = "---------------------------------------------"
         
         # Printing New Server details
         Style.print_style(f"\n\n{message}", Color.YELLOW, TextStyle.BRIGHT)
-        Style.print_style("---------------------------------------------\n", TextStyle.BOLD)
+        Style.print_style(break_line, TextStyle.BOLD)
 
-        Style.print_style(f"Serving directory : \"{FileState.ROOT_DIR}\"", TextStyle.BOLD)
+        Style.print_style(f"Serving directory : {root_dir}", TextStyle.BOLD)
         Style.print_style(f"Open in browser   : {login_link}", TextStyle.BOLD)
 
         Style.print_style(f"\nLogin Details:", 36, TextStyle.BOLD)
-        print(f"   • Username  : {ServerState.USERNAME}")
-        print(f"   • OTP       : {ServerState.OTP}")
+        print(f"   • Username  : {ServerState.username}")
+        print(f"   • OTP       : {ServerState.otp}")
 
         Style.print_style(f"\nSettings:", 36, TextStyle.BOLD)
         print(f"   • Max users : {FileState.CONFIG['max_users']} Allowed")
         print(f"   • Time Out  : {FileState.CONFIG['idle_timeout_m']} minutes")
         
-        Style.print_style("\n---------------------------------------------", TextStyle.BOLD)
+        Style.print_style(break_line, TextStyle.BOLD)
 
         # logging
-        logger.log_info(f"Generated New Credentials", f"Message: {message or 'None'}")
+        if not message:
+            message = 'None'
+            
+        logger.log_info(f"Generated New Credentials", f"Message: {message}")
