@@ -11,16 +11,6 @@ class SecurityMixin():
             if cookie.startswith('session_token='):
                 return cookie.split('=', 1)[1].strip()
         return None
-    
-    def send_security_headers(self: req_handler, cache_time = 0):
-        self.send_header("X-Frame-Options", "DENY")
-        self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Content-Security-Policy', "default-src 'self';")
-        self.send_header('Referrer-Policy', 'no-referrer')
-        if cache_time > 0:
-            self.send_header('Cache-Control', f'max-age={cache_time}')
-        else:
-            self.send_header('Cache-Control', 'no-store, must-revalidate')
 
     def validate_credentials(self: req_handler, username, otp, timeout):
         # Validate username: 6–20 alphanumeric characters
@@ -51,7 +41,7 @@ class SecurityMixin():
         
         return True
 
-    def translate_path(self, path):
+    def translate_path(self: req_handler, path):
         path = super().translate_path(str(path))
         real_path = str(helper.refine_path(path))
         if not real_path.startswith(str(FileState.ROOT_DIR)):

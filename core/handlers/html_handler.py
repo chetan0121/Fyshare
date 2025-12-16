@@ -2,11 +2,13 @@ import os
 from html import escape
 from urllib.parse import quote
 from pathlib import Path
+from http.server import SimpleHTTPRequestHandler as req_handler
+from .response_handler import ResponseHandler
 from ..state import FileState
 from ..utils import logger
 
 class HTMLHandler():
-    blocked_html_message = b'<h1>403 Forbidden</h1><p>Blocked due to excessive attempts. Try again later.</p>'
+    blocked_html_message = '<h1>403 Forbidden</h1><p>Blocked due to excessive attempts. Try again later.</p>'
     parent_dir_html = """
         <tr>
             <td>
@@ -19,6 +21,7 @@ class HTMLHandler():
             <td></td>
         </tr>"""
 
+    @staticmethod
     def generate_html(file_list, displaypath):
         template = FileState.FYSHARE_HTML
         breadcrumbs = HTMLHandler.generate_breadcrumbs(displaypath)
@@ -50,11 +53,12 @@ class HTMLHandler():
                         <td>{action}</td>
                     </tr>"""
             except Exception as e:
-                logger.print_error(f"Processing {entry.name}: {str(e)}")
+                logger.emit_error(f"Processing {entry.name}: {str(e)}")
                 continue
     
         return template.replace('{{breadcrumbs}}', breadcrumbs).replace('{{table_rows}}', table_rows)
     
+    @staticmethod
     def generate_breadcrumbs(path):
         path = str(path).replace('\\', '/').strip('/. ')
         parts = path.split('/')
@@ -72,6 +76,7 @@ class HTMLHandler():
             )
         return ''.join(breadcrumbs)
     
+    @staticmethod
     def get_file_icon(filename, is_dir):
         if is_dir:
             return "📁"
@@ -86,11 +91,13 @@ class HTMLHandler():
         }
         return icons.get(ext, '📄')
 
+    @staticmethod
     def get_action_button(filename, is_dir):
         if is_dir:
             return ""
         return f'<a class="download-btn" href="{quote(filename)}" download>⬇️ Download</a>'
 
+    @staticmethod
     def join_posix(a: str, b: str):
         a = (a or "").rstrip('/')
         b = (b or "").lstrip('/')
@@ -98,6 +105,7 @@ class HTMLHandler():
             return b
         return f"{a}/{b}"
 
+    @staticmethod
     def format_size(size_bytes: int):
         try:
             for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
@@ -107,3 +115,18 @@ class HTMLHandler():
             return f"{size_bytes:.1f} PB"
         except TypeError:
             return "N/A"
+
+    @staticmethod
+    def send_login_page(handler: req_handler, message=None):
+        try:
+            html = FileState.LOGIN_HTML
+            html = html.replace('{{message}}', message or '')
+            ResponseHandler.send_http_response(
+                handler,
+                content_type='text/html',
+                content=html
+            )
+        except Exception as e:
+            handler.send_error(500, f"Error: Something went wrong.")
+            logger.emit_error(f"Rendering login page: {str(e)}")    
+         

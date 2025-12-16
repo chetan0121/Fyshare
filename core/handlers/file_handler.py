@@ -6,6 +6,7 @@ from urllib.parse import parse_qs
 from .html_handler import HTMLHandler
 from ..utils import logger
 from .. import credentials, server
+from .response_handler import ResponseHandler
 from .security_mixin import SecurityMixin
 from ..state import FileState, ServerState
 
@@ -26,26 +27,25 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         current_time = time.monotonic()
 
         if session_manager.is_blocked(client_ip, current_time):
-            self.send_response(403, "Access Denied")
-            self.send_security_headers()
-            self.send_header('Content-Type', 'text/html; charset=utf-8')
-            self.end_headers()
-            self.wfile.write(HTMLHandler.blocked_html_message)
+            ResponseHandler.send_http_response(
+                self,
+                403, "Access Denied",
+                content_type='text/html; charset=utf-8',
+                content=HTMLHandler.blocked_html_message
+            )
             return
 
         if self.path == '/favicon.ico':
             favicon_path = FileState.STATIC_DIR / 'favicon.ico'
             if favicon_path.exists():
-                with favicon_path.open('rb') as f:
-                    self.send_response(200)
-                    self.send_security_headers(cache_time=FileState.CONFIG['cache_time_out_s'])
-                    self.send_header('Content-Type', 'image/x-icon')
-                    self.end_headers()
-                    self.wfile.write(f.read())
-                return    
+                ResponseHandler.send_http_response(
+                    self,
+                    cache_duration=FileState.CONFIG['cache_time_out_s'],
+                    file_path=favicon_path
+                )
             else:
                 self.send_error(404, "Favicon not found")
-                return
+            return
 
         if self.path == '/logout':
             session_token = self.get_session_token()
@@ -55,11 +55,18 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                 logger.emit_info(f"User({client_ip}) logged-out")
                 session_manager.remove_session(session_token)
 
-            self.send_response(302)
-            self.send_security_headers()
-            self.send_header('Location', '/')
-            self.send_header('Set-Cookie', 'session_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/')
-            self.end_headers()
+            # Headers
+            location = ('Location', '/')
+            set_cookie = (
+                'Set-Cookie', 
+                'session_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/'
+            )
+
+            ResponseHandler.send_extra_headers(
+                self,
+                status=302,
+                headers=[location, set_cookie]
+            )
             return
 
         if self.path.startswith('/static/'):
@@ -67,58 +74,37 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             
             if not file_path.exists() or not file_path.is_file():
                 self.send_error(404, "File not found")
-                logger.emit_warning(f"User[{client_ip}] tried to access invalid static file.")
+                logger.emit_warning(
+                    f"User[{client_ip}] tried to access invalid static file."
+                )
                 return
 
             try:
-                content_type = 'application/octet-stream'
-                ext = str(file_path.suffix).lower()
-                if ext == '.css':
-                    content_type = 'text/css'
-                elif ext in ('.js', '.mjs'):
-                    content_type = 'application/javascript'
-                elif ext == '.png':
-                    content_type = 'image/png'
-                elif ext in ('.jpg', '.jpeg'):
-                    content_type = 'image/jpeg'
-                elif ext == '.ico':
-                    content_type = 'image/x-icon'
-
-                file_size = file_path.stat().st_size
-                self.send_response(200)
-                self.send_security_headers(cache_time=FileState.CONFIG['cache_time_out_s'])
-                self.send_header('Content-Type', content_type)
-                self.send_header('Content-Length', str(file_size))
-                self.end_headers()
-
-                with file_path.open('rb') as f:
-                    while (chunk := f.read(65536)): # 64KB chunk
-                        self.wfile.write(chunk)
+                ResponseHandler.send_http_response(
+                    self,
+                    cache_duration=FileState.CONFIG['cache_time_out_s'],
+                    file_path=file_path,
+                    chunk_size=64
+                )
                 return  # Exit after success   
-            
             except Exception as e:
                 self.send_error(500, f"Internal Server Error")
                 logger.emit_error(f"Serving file: {str(e)}")
                 return
 
         if not self.check_authentication():
-            self.send_login_page()
+            HTMLHandler.send_login_page(self)
             return
 
         if self.path.endswith('.html'):
             file_path = Path(self.translate_path(self.path))
             if file_path.exists() and file_path.is_file():
                 try:
-                    file_size = file_path.stat().st_size
-                    self.send_response(200)
-                    self.send_security_headers(cache_time=FileState.CONFIG['cache_time_out_s'])
-                    self.send_header('Content-Type', 'text/html')
-                    self.send_header('Content-Length', str(file_size))
-                    self.end_headers()
-
-                    with file_path.open('rb') as f:
-                        while (chunk:= f.read(8192)):   # 8KB chunk
-                            self.wfile.write(chunk)
+                    ResponseHandler.send_http_response(
+                        self,
+                        cache_duration=FileState.CONFIG['cache_time_out_s'],
+                        file_path=file_path
+                    )
                 except Exception as e:
                     self.send_error(500, f"Error: Something went wrong.")
                     logger.emit_error(f"Serving html file: {str(e)}")
@@ -130,23 +116,32 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
     def do_POST(self):
         client_ip = self.client_address[0]
         current_time = time.monotonic()
-        Session = ServerState.session_manager
+        session = ServerState.session_manager
 
-        if Session.is_blocked(client_ip, current_time):
-            self.send_response(403)
-            self.send_security_headers()
-            self.send_header('Content-Type', 'text/html; charset=utf-8')
-            self.end_headers()
-            self.wfile.write(HTMLHandler.blocked_html_message)
+        if session.is_blocked(client_ip, current_time):
+            ResponseHandler.send_http_response(
+                self,
+                403, "Access Denied",
+                content_type='text/html; charset=utf-8',
+                content=HTMLHandler.blocked_html_message
+            )
             return
         
-        if Session.is_inCool(client_ip, current_time):
-            self.send_login_page(message="Too many attempts. Try again later.")
+        if session.is_inCool(client_ip, current_time):
+            HTMLHandler.send_login_page(
+                self, 
+                message="Too many attempts. Try again later."
+            )
             return
         
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length).decode('utf-8')
-        params = parse_qs(post_data)
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length).decode('utf-8')
+            params = parse_qs(post_data)
+        except Exception as e:
+            logger.emit_error(f"Decoding POST data: {str(e)}")
+            self.send_error(400, "Error decoding POST data")    
+            return
 
         # Safely type conversion
         try:
@@ -154,55 +149,66 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             submitted_otp = str(params.get('otp', [''])[0])
             timeout_seconds = int(params.get('timeout', ['0'])[0])
         except ValueError:
-            self.send_login_page(message="Invalid input values.")
+            HTMLHandler.send_login_page(self, message="Invalid input values.")
             return
 
-        if not self.validate_credentials(submitted_username, submitted_otp, timeout_seconds):
-            self.send_login_page(message="Invalid input! Please check your username and otp format.")
+        if not self.validate_credentials(
+            submitted_username, 
+            submitted_otp, 
+            timeout_seconds
+        ):
+            HTMLHandler.send_login_page(
+                self, 
+                message="Invalid input! Please check your username and otp format."
+            )
             return
 
-        if len(Session.sessions) >= FileState.CONFIG['max_users']:
-            self.send_login_page(message="Server busy—too many users. Try again later.")
+        if len(session.sessions) >= FileState.CONFIG['max_users']:
+            HTMLHandler.send_login_page(
+                self, 
+                message="Server busy—too many users. Try again later."
+            )
             return
         
-        if submitted_username == ServerState.username and submitted_otp == ServerState.otp:
+        if submitted_username == ServerState.username \
+            and submitted_otp == ServerState.otp:
+
             session_token = credentials.generate_session_token()
-            Session.add_session(session_token, client_ip, current_time + timeout_seconds)
+            session.add_session(
+                session_token, 
+                client_ip, 
+                current_time + timeout_seconds
+            )
 
-            self.send_response(302)
-            self.send_security_headers()
-            self.send_header('Location', '/')
-            self.send_header('Set-Cookie', f'session_token={session_token}; Path=/; HttpOnly; Max-Age={timeout_seconds}; SameSite=Strict')
-            self.end_headers()
-
+            location = ('Location', '/')
+            set_cookie = (
+                'Set-Cookie', 
+                f'session_token={session_token}; ' 
+                f'Path=/; HttpOnly; Max-Age={timeout_seconds}; SameSite=Strict'
+            )
+            ResponseHandler.send_extra_headers(
+                self,
+                status=302,
+                headers=[location, set_cookie]
+            )
             logger.emit_info(f"User({client_ip}) logged-in")
         else:
-            Session.update_attempts(client_ip, current_time)
+            session.update_attempts(client_ip, current_time)
 
             with ServerState.credentials_lock:
                 ServerState.global_attempts += 1
+                attempts = ServerState.global_attempts
 
-            attempts = ServerState.global_attempts
             if attempts > FileState.CONFIG['max_users']*100:
-                server.shutdown_server(f"- Security shutdown triggered after {attempts} rapid login attempts")
+                server.shutdown_server(
+                    "- Security shutdown triggered "
+                    f"after {attempts} rapid login attempts"
+                )
 
             if attempts % (FileState.CONFIG['max_users']*10) == 0:
                 credentials.generate_credentials("Too many failed attempts on server")
 
-            self.send_login_page(message="Invalid username or otp.")
-
-    def send_login_page(self, message=None):
-        try:
-            html = FileState.LOGIN_HTML
-            html = html.replace('{{message}}', message or '')
-            self.send_response(200)
-            self.send_security_headers()
-            self.send_header('Content-Type', 'text/html; charset=utf-8')
-            self.end_headers()
-            self.wfile.write(html.encode('utf-8'))
-        except Exception as e:
-            self.send_error(500, f"Error: Something went wrong.")
-            logger.emit_error(f"Rendering login page: {str(e)}")
+            HTMLHandler.send_login_page(self, message="Invalid username or otp.")
 
     def list_directory(self, path):
         try:
@@ -220,19 +226,17 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             return None
 
         file_list.sort(key=lambda a: (not a.is_dir(), a.name.lower()))
-        display_path = os.path.relpath(path, str(FileState.ROOT_DIR)).strip('/.') or '.'
+        root_dir =  str(FileState.ROOT_DIR)
+        display_path = os.path.relpath(path, root_dir or '.')
 
         try:
             response = HTMLHandler.generate_html(file_list, display_path)
-            encoded = response.encode('utf-8')
-            self.send_response(200)
-            self.send_security_headers()
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(encoded)))
-            self.end_headers()
-            self.wfile.write(encoded)
+            ResponseHandler.send_http_response(
+                self,
+                cache_duration=FileState.CONFIG['cache_time_out_s'],
+                content_type='text/html; charset=utf-8',
+                content=response
+            )
         except Exception as e:
             self.send_error(500, f"Error generating response.")
-            logger.emit_error(f"Generating response: {str(e)}")
-
-    
+            logger.emit_error(f"Generating response: {str(e)}")   
