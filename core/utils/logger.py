@@ -1,8 +1,9 @@
 import logging
 from pathlib import Path
 from .style_manager import *
+from logging.handlers import RotatingFileHandler
 
-def set_logger(file: str | Path) -> None:
+def set_logger(file: str) -> None:
     """
     Configure rotating file logger
     - Automatically creates log directory if it doesn't exist
@@ -14,28 +15,26 @@ def set_logger(file: str | Path) -> None:
     
     Usage:
         set_logger("logs/fyshare.log")
+
         Log something using:
             e.g. logger.log_error("Server started")
     """
-    from logging.handlers import RotatingFileHandler
-    
     Path(file).parent.mkdir(parents=True, exist_ok=True)
 
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s | %(message)s',
+        format='%(prefix)s%(asctime)s | %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
         force=True,  # Removes previous handlers
         handlers=[
             RotatingFileHandler(
                 file,
-                maxBytes=1_000_000,
+                maxBytes=1_048_576, # 1 MiB
                 backupCount=3,
                 encoding='utf-8'
             )
         ]
     )
-
 
 # ===== Utils =====
 def __set_level(*txt, sep: str, level: str, enable: bool):
@@ -59,7 +58,6 @@ def __print_level(
         codes.append(TextStyle.BOLD)
 
     Style.print_style(txt, *codes, prefix=prefix, end=end)
-
 
 # ========= Printer functions =========
 def print_error(*msg, sep=" | ", prefix="\n", end="\n\n",
@@ -109,17 +107,17 @@ def print_info(*msg, sep=" | ", prefix="\n", end="\n\n",
 def log_error(*msg, sep=" | ", lvl_tag=True, prefix=""):
     message = __set_level(*msg, sep=sep, level="ERROR", enable=lvl_tag)
 
-    logging.error(f"{prefix}{message}")
+    logging.error(message, extra={'prefix': prefix})
 
 def log_warning(*msg, sep=" | ", lvl_tag=True, prefix=""):
     message = __set_level(*msg, sep=sep, level="WARNING", enable=lvl_tag)
 
-    logging.warning(f"{prefix}{message}")
+    logging.warning(message, extra={'prefix': prefix})
     
 def log_info(*msg, sep=" | ", lvl_tag=True, prefix=""):
     message = __set_level(*msg, sep=sep, level="INFO", enable=lvl_tag)
 
-    logging.info(f"{prefix}{message}")
+    logging.info(message, extra={'prefix': prefix})
 
 
 # ===== Logging and Printing in one =====
@@ -137,16 +135,16 @@ def emit_error(*msg, sep=" | ", lvl_tag = True):
     message = __set_level(*msg, sep=sep, level="ERROR", enable=lvl_tag)
 
     __emit_print(message, Color.RED)
-    logging.error(f"{message}")
+    logging.error(f"{message}", extra={'prefix': ""})
 
 def emit_warning(*msg, sep=" | ", lvl_tag = True):
     message = __set_level(*msg, sep=sep, level="WARNING", enable=lvl_tag)
 
     __emit_print(message, Color.YELLOW)
-    logging.warning(f"{message}")
+    logging.warning(f"{message}", extra={'prefix': ""})
     
 def emit_info(*msg, sep=" | ", lvl_tag = True):
     message = __set_level(*msg, sep=sep, level="INFO", enable=lvl_tag)
 
     __emit_print(message, Color.WHITE)
-    logging.info(f"{message}")
+    logging.info(f"{message}", extra={'prefix': ""})
