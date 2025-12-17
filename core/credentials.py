@@ -32,11 +32,11 @@ def generate_credentials(message = str("")):
         # Details to print
         root_dir = f"\"{FileState.ROOT_DIR}\""
         login_link = f"http://{ServerState.local_ip}:{ServerState.port}"
-        break_line = "---------------------------------------------"
+        separator_line = str('-'*50)
         
         # Printing New Server details
         Style.print_style(f"\n\n{message}", Color.YELLOW, TextStyle.BRIGHT)
-        Style.print_style(break_line, TextStyle.BOLD)
+        Style.print_style(separator_line, TextStyle.BOLD)
 
         Style.print_style(f"Serving directory : {root_dir}", TextStyle.BOLD)
         Style.print_style(f"Open in browser   : {login_link}", TextStyle.BOLD)
@@ -49,7 +49,7 @@ def generate_credentials(message = str("")):
         print(f"   • Max users : {FileState.CONFIG['max_users']} Allowed")
         print(f"   • Time Out  : {FileState.CONFIG['idle_timeout_m']} minutes")
         
-        Style.print_style(break_line, TextStyle.BOLD)
+        Style.print_style(separator_line, TextStyle.BOLD)
 
         # logging
         if not message:

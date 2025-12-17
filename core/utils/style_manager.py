@@ -1,7 +1,8 @@
 import re
 import sys
+from typing import Union, Optional
 
-def _parse_int(txt) -> int | None:
+def _parse_int(txt) -> Optional[int]:
     try:
         num = int(txt)
         return num
@@ -18,7 +19,7 @@ class Style:
             return ""
         return f"{Style.ESC}{';'.join(str(c) for c in codes)}m"
     
-    def _resolve(codes: list | tuple | set) -> list:
+    def _resolve(codes: Union[list, tuple, set]) -> list:
         """
         Handle Code list and resolve custom codes
         """

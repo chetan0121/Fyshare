@@ -5,8 +5,19 @@ from .state import FileState
 
 class SessionManager:
     def __init__(self):
-        self.sessions = {}      # {token: {'ip': ip, 'expiry': timestamp}}
-        self.attempts = {}      # {ip: {'count': int, 'last_time': time, 'cool_until: time', 'blocked_until': time}}
+        self.sessions = {}      
+        # {token: {'ip': ip, 'expiry': timestamp}}
+
+        self.attempts = {}  # {
+                            #    ip: {
+                            #       'count': int, 
+                            #       'last_time': time, 
+                            #       'cool_until: time', 
+                            #       'blocked_until': time
+                            #    }
+                            # }
+
+        # Thread lock for every function 
         self.lock = threading.Lock()
 
     def add_session(self, token, ip, expiry):
@@ -26,9 +37,15 @@ class SessionManager:
     def clean_expired_sessions(self):
         with self.lock:
             current_time = time.monotonic()
-            expired = [t for t, s in self.sessions.items() if current_time > s['expiry']]
+            expired = [
+                t for t, s in self.sessions.items()
+                if current_time > s["expiry"]
+            ]
+
             for token in expired:
-                logger.emit_info(f"Session expired for User({self.sessions[token]['ip']})")
+                logger.emit_info(
+                    f"Session expired for User({self.sessions[token]['ip']})"
+                )
                 del self.sessions[token]
 
     def update_attempts(self, ip, current_time):

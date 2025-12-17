@@ -58,7 +58,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             # Headers
             location = ('Location', '/')
             set_cookie = (
-                'Set-Cookie', 
+                'Set-Cookie',
                 'session_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/'
             )
 
@@ -75,7 +75,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             if not file_path.exists() or not file_path.is_file():
                 self.send_error(404, "File not found")
                 logger.emit_warning(
-                    f"User[{client_ip}] tried to access invalid static file."
+                    f"User({client_ip}) tried to access invalid static file."
                 )
                 return
 
@@ -201,7 +201,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
 
             if attempts > FileState.CONFIG['max_users']*100:
                 server.shutdown_server(
-                    "- Security shutdown triggered "
+                    "Security shutdown triggered "
                     f"after {attempts} rapid login attempts"
                 )
 
@@ -226,7 +226,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             return None
 
         file_list.sort(key=lambda a: (not a.is_dir(), a.name.lower()))
-        root_dir =  str(FileState.ROOT_DIR)
+        root_dir = str(FileState.ROOT_DIR)
         display_path = os.path.relpath(path, root_dir or '.')
 
         try:

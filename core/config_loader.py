@@ -1,3 +1,4 @@
+from typing import Optional
 from .utils import helper, logger
 from .state import FileState
 
@@ -73,7 +74,7 @@ def check_config(CONFIG) -> None:
         raise ConfigError("'default_cache_time_out_seconds' must be between 0 and 86400")
 
 
-def load_config(config_path) -> dict | None:
+def load_config(config_path) -> Optional[dict]:
     """Load config (Normalize, validate and return as dict)"""
     try:
         raw_config = helper.get_json(config_path)

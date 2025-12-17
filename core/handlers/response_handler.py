@@ -1,6 +1,7 @@
 import mimetypes
 from pathlib import Path
-from http.server import SimpleHTTPRequestHandler as req_handler
+from typing import Optional, Union
+from http.server import SimpleHTTPRequestHandler as ReqHandler
 from ..utils import logger
 
 _MAX_SIZE = 10 * 1024**3  # bytes (10 GiB)
@@ -9,7 +10,7 @@ class ResponseHandler:
     """Centralized response management"""
 
     @staticmethod
-    def send_security_headers(self: req_handler, cache_time = 0.0):
+    def send_security_headers(self: ReqHandler, cache_time = 0.0):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Content-Security-Policy', "default-src 'self';")
@@ -21,7 +22,7 @@ class ResponseHandler:
 
     @staticmethod
     def send_extra_headers(
-        handler: req_handler, 
+        handler: ReqHandler, 
         status=200, 
         msg="", 
         headers: list[tuple[str, str]] = None,
@@ -42,14 +43,14 @@ class ResponseHandler:
     
     @staticmethod
     def send_http_response(
-        handler: req_handler,
+        handler: ReqHandler,
         status: int = 200,
-        message: str | None = None,
+        message: Optional[str] = None,
         cache_duration: float = 0.0,
         content_type: str = "text/plain",
-        content: str | bytes | None = None,
-        file_path: str | None = None,
-        chunk_size: int = 32
+        content: Optional[Union[str, bytes]] = None,
+        file_path: Optional[str] = None,
+        chunk_size: int = 32,
     ) -> None:
         """
         Send an HTTP response (headers + body) from either an in-memory content

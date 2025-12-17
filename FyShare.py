@@ -50,7 +50,8 @@ def main() -> None:
     # First-time startup banner
     startup_url = f"http://{ServerState.local_ip}:{ServerState.port}"
     logger.log_info(
-        f"- Server started → {startup_url} | Serving: '{FileState.ROOT_DIR}'"
+        f"Server started → {startup_url}", "Serving: '{FileState.ROOT_DIR}'",
+        prefix=f"{'='*120}\n"
     )
 
     # Generate and print credentials
@@ -61,10 +62,10 @@ def main() -> None:
     try:
         server.run_server()
     except KeyboardInterrupt:
-        server.shutdown_server("- Server stopped manually")
+        server.shutdown_server("Server stopped manually")
     except Exception as e:
         logger.emit_error(f"Server error: {e}")
-        server.shutdown_server(f"- Server terminated due to error")
+        server.shutdown_server(f"Server terminated due to error")
 
 # Entry point
 if __name__ == "__main__":

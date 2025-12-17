@@ -1,12 +1,13 @@
 import threading
 import secrets
+from typing import Optional
 from http.server import ThreadingHTTPServer
 from ..utils import host_ip
 from ..session_manager import SessionManager
 
 class ServerState:
     # Server
-    Server: ThreadingHTTPServer = None
+    Server: Optional[ThreadingHTTPServer] = None
     is_running = False
 
     # Credentials
@@ -15,14 +16,14 @@ class ServerState:
     credentials_lock = threading.Lock()
 
     # Manager
-    session_manager: SessionManager = None
+    session_manager: Optional[SessionManager] = None
 
     # States of server
     port: str
     local_ip: str
     global_attempts: int = 0
-    last_credential_update_ts: float | None = None
-    inactivity_start_ts: float | None = None
+    last_credential_update_ts: Optional[float] = None
+    inactivity_start_ts: Optional[float] = None
 
     # init_server flag
     is_server_state = False

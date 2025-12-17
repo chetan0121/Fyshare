@@ -36,8 +36,8 @@ def shutdown_server(msg=""):
             return
 
     # Print and log the msg
-    logger.print_info(msg, lvl_tag=False, prefix="\n\n")
-    logger.log_info(f"{msg}\n", lvl_tag=False)
+    logger.print_info(f"- {msg}", lvl_tag=False, prefix="\n\n")
+    logger.log_info(msg)
 
 def run_server():
     # Make Alias of server
@@ -48,8 +48,8 @@ def run_server():
         raise AttributeError("Instance of SessionManager not found")
 
     # Alias
-    server         = S.Server
-    session        = S.session_manager
+    server  = S.Server
+    session = S.session_manager
 
     # Set refresh time
     server.timeout = FileState.CONFIG["refresh_time_s"]
@@ -89,6 +89,6 @@ def run_server():
         if (current_time - S.inactivity_start_ts) > idle_timeout_s:
             min_or_mins = 'minute' if idle_timeout_m == 1 else 'minutes'
             shutdown_server(
-                f"- Server closed successfully after "
+                f"Server closed successfully after "
                 f"{idle_timeout_m} {min_or_mins} of inactivity"
             )

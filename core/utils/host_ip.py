@@ -2,10 +2,12 @@ import socket
 import subprocess
 import re
 import platform
+from typing import Optional
 from . import logger
 
 _exclude_prefixes = ("lo", "tun", "tap", "wg", "ppp", "ccmni", 
                     "docker", "veth", "vmnet", "virbr", "gif")
+
 _priority_prefixes = ("wlan", "wl", "wifi", "ath", "eth", "en")
 
 class IPManager:
@@ -102,7 +104,7 @@ def get_local_ip_windows() -> str:
 
 def _parse_ip_output(output: str) -> str:
     """Parse output of 'ip addr show' command"""
-    current_iface: str | None = None
+    current_iface: Optional[str] = None
     ip_manager = IPManager()
     
     for line in output.split('\n'):
@@ -134,7 +136,7 @@ def _parse_ip_output(output: str) -> str:
 
 def _parse_ifconfig_output(output: str) -> str:
     """Parse output of 'ifconfig' command"""
-    current_iface: str | None = None
+    current_iface: Optional[str] = None
     ip_manager = IPManager()
     
     for line in output.split('\n'):
