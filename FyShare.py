@@ -51,7 +51,7 @@ def main() -> None:
     startup_url = f"http://{ServerState.local_ip}:{ServerState.port}"
     logger.log_info(
         f"Server started → {startup_url}", "Serving: '{FileState.ROOT_DIR}'",
-        prefix=f"{'='*120}\n"
+        prefix=f"{'='*100}\n"
     )
 
     # Generate and print credentials
