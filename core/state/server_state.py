@@ -2,7 +2,7 @@ import threading
 import secrets
 from typing import Optional
 from http.server import ThreadingHTTPServer
-from ..utils import host_ip
+from ..utils.get_local_ip import get_local_ip
 from ..session_manager import SessionManager
 
 class ServerState:
@@ -38,7 +38,7 @@ class ServerState:
         ServerState.is_server_state = True
 
         # Get local ip
-        ServerState.local_ip = host_ip.get_local_ip()
+        ServerState.local_ip = get_local_ip()
 
         # Select random port from 1500 to 9500
         ServerState.port = secrets.choice(range(1500, 9500))
