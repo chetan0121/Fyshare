@@ -5,21 +5,17 @@ import platform
 from typing import Optional
 from . import logger
 
-_exclude_prefixes = ("lo", "tun", "tap", "wg", "ppp", "ccmni", 
-                    "docker", "veth", "vmnet", "virbr", "gif")
-
-_priority_prefixes = ("wlan", "wl", "wifi", "ath", "eth", "en")
-
 class IPManager:
-    def __init__(self):
+    def __init__(self, priority_prefixes):
         self.prior_ip = ""
         self.max_points = 0
+        self.prefixes = priority_prefixes
 
     def compare(self, new_ip: str, iface: str):
         score = 0
-        for i, prefix in enumerate(_priority_prefixes):
+        for i, prefix in enumerate(self.prefixes):
             if iface.startswith(prefix):
-                score = len(_priority_prefixes)-i
+                score = len(self.prefixes)-i
                 break
 
         if score >= self.max_points:
@@ -29,16 +25,15 @@ class IPManager:
 def get_local_ip() -> str:
     """Get local IP address"""
 
-    # Try UDP socket method (widely used)
+    # Try UDP socket method
     ip = get_local_ip_socket()
     if ip:
         return ip
 
-    # Get core system as string(in lower-case)
     system = platform.system().lower()
     
     # Try system specific commands to get ip
-    if system == "linux" or system == "darwin":  # Linux, macOS, Android
+    if system == "linux" or system == "darwin":
         return get_local_ip_unix()
     elif system == "windows":
         return get_local_ip_windows()
@@ -53,8 +48,8 @@ def get_local_ip_socket() -> str:
             ip = str(s.getsockname()[0])
             if is_valid_ip(ip):
                 return ip
-    except Exception as e:
-        logger.print_warning(f"Failed to get ip using socket method: {str(e)}")
+    except:
+        pass
         
     return ""
 
@@ -68,8 +63,8 @@ def get_local_ip_unix() -> str:
             ip = _parse_ifconfig_output(result.stdout)
             if ip:
                 return ip
-    except Exception as e:
-        logger.print_warning(f"Failed to get ip using ifconfig method: {str(e)}")
+    except:
+        pass
 
     try:
         # Try 'ip' command
@@ -79,33 +74,39 @@ def get_local_ip_unix() -> str:
             ip = _parse_ip_output(result.stdout)
             if ip:
                 return ip
-    except Exception as e:
-        logger.print_warning(f"Failed to get ip using ip_command method: {str(e)}")
+    except:
+        pass
 
     return get_local_ip_fallback()
 
 def get_local_ip_windows() -> str:
-    """Get IP on Windows"""
+    """
+    Get IP addresses from all network interfaces
+    """
     try:
-        result = subprocess.run(
-            'ipconfig',
-            capture_output=True,
-            text=True,
-            timeout=2
-        )
-        if result.returncode == 0:
-            ip = _parse_ipconfig_output(result.stdout)
-            if ip:
-                return ip
-    except Exception as e:
-        logger.print_warning(f"Failed to get ip using ipconfig method: {str(e)}")
-
-    return get_local_ip_fallback()    
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        hostname = socket.gethostname()
+        addrinfo = socket.getaddrinfo(hostname, None)
+        
+        for addr in addrinfo:
+            if addr[0] == socket.AF_INET:  # IPv4 only
+                ip = str(addr[4][0])
+                if is_valid_ip(ip):
+                    return ip
+    except:
+        pass
+    finally:
+        s.close()
+    
+    return get_local_ip_fallback()
 
 def _parse_ip_output(output: str) -> str:
     """Parse output of 'ip addr show' command"""
+    _exclude_prefixes = ("lo", "tun", "tap", "wg", "ppp", "ccmni")
+    _priority_prefixes = ("wlan", "wl", "wifi", "ath", "eth", "en")
+
     current_iface: Optional[str] = None
-    ip_manager = IPManager()
+    ip_manager = IPManager(_priority_prefixes)
     
     for line in output.split('\n'):
         line = line.strip()
@@ -136,8 +137,11 @@ def _parse_ip_output(output: str) -> str:
 
 def _parse_ifconfig_output(output: str) -> str:
     """Parse output of 'ifconfig' command"""
+    _exclude_prefixes = ("lo", "tun", "tap", "wg", "ppp", "ccmni")
+    _priority_prefixes = ("wlan", "wl", "wifi", "ath", "eth", "en")
+
     current_iface: Optional[str] = None
-    ip_manager = IPManager()
+    ip_manager = IPManager(_priority_prefixes)
     
     for line in output.split('\n'):
         line = line.strip()
@@ -145,7 +149,7 @@ def _parse_ifconfig_output(output: str) -> str:
             continue
         
         # Get interface name (non-empty line that doesn't start with whitespace)
-        if not line[0].isspace() and ('flags' in line or 'encap' in line):
+        if 'flags' in line or 'encap' in line:
             parts = line.split(':', 1)[0].split()
             current_iface = parts[0].lower()
             if any(current_iface.startswith(i) for i in _exclude_prefixes):
@@ -165,31 +169,19 @@ def _parse_ifconfig_output(output: str) -> str:
 
     return ip_manager.prior_ip
 
-def _parse_ipconfig_output(output: str) -> str:
-    for line in output.split('\n'):
-        line = line.strip()
-        if not line:
-            continue
-
-        if "IPv4" in line:
-            match = re.search(r'IPv4[^:]*:\s*(\d+\.\d+\.\d+\.\d+)', line, re.IGNORECASE)
-            if match:
-                ip = match.group(1)
-                if is_valid_ip(ip):
-                    return ip
-    return ""
-
 def is_valid_ip(ip: str) -> bool:
     """Check if IP is valid IPv4 and not special/reserved"""
+    ip = ip.strip()
     if not ip:
         return False
     
     # Check for loopback, link-local etc.
-    if (ip.startswith("127.") or 
+    if (
+        ip.startswith("127.") or 
         ip.startswith("169.254.") or
         ip.startswith("0.") or
-        ip == "0.0.0.0" or
-        ip == "255.255.255.255"):
+        ip.startswith("255.")
+    ):
         return False
     
     # Basic IP validation
@@ -199,10 +191,9 @@ def is_valid_ip(ip: str) -> bool:
     
     # Check for invalid chars in IP
     try:
-        # Multi-cast ip
-        if 224 <= int(parts[0]) <= 239:
+        if 224 <= int(parts[0]) <= 255:
             return False
-    
+        
         for part in parts:
             num = int(part)
             if num < 0 or num > 255:
@@ -222,19 +213,18 @@ def get_local_ip_fallback() -> str:
             # Get all IPs for hostname
             ip_list = socket.getaddrinfo(hostname, None, socket.AF_INET)
             for ip_info in ip_list:
-                ip = ip_info[4][0]
+                ip = str(ip_info[4][0])
                 if is_valid_ip(ip):
                     return ip
         except:
             # Try localhost resolution
             ip_list = socket.getaddrinfo("localhost", None, socket.AF_INET)
             for ip_info in ip_list:
-                ip = ip_info[4][0]
+                ip = str(ip_info[4][0])
                 if is_valid_ip(ip):
                     return ip
-    except Exception as e:
-        logger.print_warning(f"Failed to get IP in fallback method: {e}")
+    except:
         pass
     
     logger.print_warning(f"Failed to determine the device'sLocal IP address, Falling back to IP[0.0.0.0]")
-    return "0.0.0.0"
+    return "127.0.0.1"
