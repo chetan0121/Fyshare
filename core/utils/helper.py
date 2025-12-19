@@ -1,11 +1,12 @@
 import json
 import os
+from typing import Union
 from pathlib import Path
 
 class UtilityError(Exception): pass
 
 # Refine path
-def refine_path(path, do_resolve=True):
+def refine_path(path: str, do_resolve=True):
     path_str = str(path).strip()
     if not path_str:
         raise UtilityError("Path cannot be empty")
@@ -18,7 +19,7 @@ def refine_path(path, do_resolve=True):
     return final_path    
 
 # Check if its valid directory
-def is_valid_dir(path):
+def is_valid_dir(path: Union[str, Path]):
     """
     Validates that the given path is an existing, real directory.
     Returns the Path object if valid (so you can chain calls).
@@ -50,7 +51,7 @@ def is_valid_dir(path):
         raise UtilityError(f"No read permission for directory '{path}'")
 
 # Get Configuration
-def get_json(path):
+def get_json(path: Union[Path, str]):
     json_path = Path(path)
     if not json_path.exists():
         raise UtilityError(f"File('{json_path}') not found")
@@ -64,7 +65,7 @@ def get_json(path):
     return config
 
 # Update json file with func as provided
-def update_json(path: Path, update_func):
+def update_json(path: Union[str, Path], update_func):
     """
     Atomically update a JSON file using a callback function.
     Thread-safe and works on Windows.

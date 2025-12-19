@@ -1,7 +1,7 @@
-import os
 from html import escape
 from urllib.parse import quote
 from pathlib import Path
+from typing import Union
 from http.server import SimpleHTTPRequestHandler as ReqHandler
 from .response_handler import ResponseHandler
 from ..state import FileState
@@ -84,7 +84,7 @@ class HTMLHandler():
         )
     
     @staticmethod
-    def generate_breadcrumbs(path):
+    def generate_breadcrumbs(path: str):
         refined_path = str(path).replace('\\', '/').strip('/. ')
         parts = refined_path.split('/')
         breadcrumbs = ['<a href="/">🏠 Home</a>']
@@ -103,7 +103,7 @@ class HTMLHandler():
         return ''.join(breadcrumbs)
     
     @staticmethod
-    def get_file_icon(file_name: str) -> str:
+    def get_file_icon(file_name: Union[str, Path]) -> str:
         path = Path(file_name)
 
         # Directory check

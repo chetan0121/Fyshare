@@ -35,13 +35,13 @@ class SecurityMixin():
         if not session_data:
             return False
         
-        if time.monotonic() >= session_data['expiry']:
+        if time.monotonic() >= session_data.get('expiry', 0):
             ServerState.session_manager.remove_session(session_token)
             return False
         
         return True
 
-    def translate_path(self: ReqHandler, path):
+    def translate_path(self: ReqHandler, path: str):
         path = super().translate_path(str(path))
         real_path = str(helper.refine_path(path))
         if not real_path.startswith(str(FileState.ROOT_DIR)):

@@ -5,8 +5,8 @@ from .state import FileState
 
 class SessionManager:
     def __init__(self):
+        # {token: {'ip': client_ip, 'expiry': timestamp}}
         self.sessions = {}      
-        # {token: {'ip': ip, 'expiry': timestamp}}
 
         self.attempts = {}  # {
                             #    ip: {
@@ -18,24 +18,24 @@ class SessionManager:
                             # }
 
         # Thread lock for every function 
-        self.lock = threading.Lock()
+        self.session_lock = threading.Lock()
 
     def add_session(self, token, ip, expiry):
-        with self.lock:
+        with self.session_lock:
             self.sessions[token] = {'ip': ip, 'expiry': expiry}
 
     def remove_session(self, token):
-        with self.lock:
+        with self.session_lock:
             if token in self.sessions:
                 del self.sessions[token]
 
     def get_session(self, token):
-        with self.lock:
+        with self.session_lock:
             session = self.sessions.get(token)
             return dict(session) if session else None
 
     def clean_expired_sessions(self):
-        with self.lock:
+        with self.session_lock:
             current_time = time.monotonic()
             expired = [
                 t for t, s in self.sessions.items()
@@ -49,7 +49,7 @@ class SessionManager:
                 del self.sessions[token]
 
     def update_attempts(self, ip, current_time):
-        with self.lock:
+        with self.session_lock:
             if ip not in self.attempts:
                 self.attempts[ip] = {'count': 1, 'last_time': current_time}
             else:
@@ -71,15 +71,16 @@ class SessionManager:
                     return
 
     def is_inCool(self, ip, current_time):
-        with self.lock:
+        with self.session_lock:
             return ip in self.attempts and self.attempts[ip].get('cool_until', 0) > current_time
         
     def is_blocked(self, ip, current_time):
-        with self.lock:
+        with self.session_lock:
             return ip in self.attempts and self.attempts[ip].get('blocked_until', 0) > current_time
 
     def clean_expired_attempts(self):
-        with self.lock:
+        with self.session_lock:
+            cleanup_timeout_s = FileState.CONFIG['cleanup_timeout_m']*60
             current_time = time.monotonic()
             expired_ips = []
 
@@ -89,7 +90,7 @@ class SessionManager:
                     logger.emit_info(f"Unblocked User[{ip}]")
                     expired_ips.append(ip)
 
-                elif 'last_time' in data and current_time - data['last_time'] > FileState.CONFIG['cleanup_timeout_m']*60:
+                elif 'last_time' in data and current_time - data['last_time'] > cleanup_timeout_s:
                     expired_ips.append(ip)
 
             # Remove fully expired entries

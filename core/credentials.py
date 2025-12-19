@@ -52,7 +52,5 @@ def generate_credentials(message = str("")):
         Style.print_style(separator_line, TextStyle.BOLD)
 
         # logging
-        if not message:
-            message = 'None'
-            
-        logger.log_info(f"Generated New Credentials", f"Message: {message}")
+        reason = message if message else 'None'
+        logger.log_info(f"Generated New Credentials", f"Reason: {reason}")

@@ -26,7 +26,7 @@ def init_server():
         )
         exit(1)
 
-def shutdown_server(msg=""):
+def shutdown_server(msg="Shutdown the Server"):
     if ServerState.Server:
         try:
             ServerState.is_running = False

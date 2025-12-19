@@ -5,7 +5,7 @@ from .state import FileState
 # Custom Exception
 class ConfigError(Exception): pass
 
-def normalize_config(config) -> dict:
+def normalize_config(config: dict) -> dict:
     """Normalize value types of config"""
     try:
         CONFIG = {
@@ -44,7 +44,7 @@ def normalize_config(config) -> dict:
 
     return CONFIG
 
-def check_config(CONFIG) -> None:
+def check_config(CONFIG: dict) -> None:
     """Validates config values"""
     if CONFIG['max_users'] < 1 or CONFIG['max_users'] > 100:
         raise ConfigError("'max_users' must be a natural number from 1 to 100")

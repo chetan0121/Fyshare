@@ -1,5 +1,6 @@
 from pathlib import Path
 from ..utils import helper
+from typing import Union
 
 class StateError(Exception): pass
 
@@ -86,7 +87,7 @@ class FileState:
         # Set root dir
         FileState.ROOT_DIR = path
 
-    def set_templates(path):
+    def set_templates(path: Union[str, Path]):
         """Load templates (htmls)"""
         path = helper.refine_path(path, False)
         helper.is_valid_dir(path)
@@ -110,7 +111,7 @@ class FileState:
         options_html = "\n".join(opt_list_html)
         FileState.LOGIN_HTML = login_html.replace('{{options}}', options_html)
 
-    def set_static_dir(path):
+    def set_static_dir(path: Union[str, Path]):
         """Set and validate static directory path before using it"""
         path = helper.refine_path(path, False)
         helper.is_valid_dir(path)
