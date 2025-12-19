@@ -27,11 +27,9 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         current_time = time.monotonic()
 
         if session_manager.is_blocked(client_ip, current_time):
-            ResponseHandler.send_http_response(
-                self,
-                403, "Access Denied",
-                content_type='text/html; charset=utf-8',
-                content=HTMLHandler.blocked_html_message
+            ResponseHandler.send_blocked_response(
+                self, 
+                HTMLHandler.blocked_html_message
             )
             return
 
@@ -51,12 +49,12 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             session_token = self.get_session_token()
             session = session_manager.get_session(session_token)
             if session_token and session:
-                client_ip = session['ip']
-                logger.emit_info(f"User({client_ip}) logged-out")
+                curr_ip = session['ip']
+                logger.emit_info(f"User({curr_ip}) logged-out")
                 session_manager.remove_session(session_token)
 
             # Headers
-            location = ('Location', '/')
+            home_page = ('Location', '/')
             set_cookie = (
                 'Set-Cookie',
                 'session_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/'
@@ -65,7 +63,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             ResponseHandler.send_extra_headers(
                 self,
                 status=302,
-                headers=[location, set_cookie]
+                headers=[home_page, set_cookie]
             )
             return
 
@@ -116,20 +114,18 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
     def do_POST(self):
         client_ip = self.client_address[0]
         current_time = time.monotonic()
-        session = ServerState.session_manager
+        session_manager = ServerState.session_manager
 
-        if session.is_blocked(client_ip, current_time):
-            ResponseHandler.send_http_response(
-                self,
-                403, "Access Denied",
-                content_type='text/html; charset=utf-8',
-                content=HTMLHandler.blocked_html_message
+        if session_manager.is_blocked(client_ip, current_time):
+            ResponseHandler.send_blocked_response(
+                self, 
+                HTMLHandler.blocked_html_message
             )
             return
         
-        if session.is_inCool(client_ip, current_time):
+        if session_manager.is_inCool(client_ip, current_time):
             HTMLHandler.send_login_page(
-                self, 
+                self,
                 message="Too many attempts. Try again later."
             )
             return
@@ -163,7 +159,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             )
             return
 
-        if len(session.sessions) >= FileState.CONFIG['max_users']:
+        if len(session_manager.sessions) >= FileState.CONFIG['max_users']:
             HTMLHandler.send_login_page(
                 self, 
                 message="Server busy—too many users. Try again later."
@@ -174,43 +170,45 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             and submitted_otp == ServerState.otp:
 
             session_token = credentials.generate_session_token()
-            session.add_session(
+            session_manager.add_session(
                 session_token, 
                 client_ip, 
                 current_time + timeout_seconds
             )
 
-            location = ('Location', '/')
+            home_page = ('Location', '/')
             set_cookie = (
                 'Set-Cookie', 
-                f'session_token={session_token}; ' 
+                f'session_token={session_token}; '
                 f'Path=/; HttpOnly; Max-Age={timeout_seconds}; SameSite=Strict'
             )
             ResponseHandler.send_extra_headers(
                 self,
                 status=302,
-                headers=[location, set_cookie]
+                headers=[home_page, set_cookie]
             )
             logger.emit_info(f"User({client_ip}) logged-in")
         else:
-            session.update_attempts(client_ip, current_time)
+            security_shutdown_threshold = FileState.CONFIG['max_users']*100
+            credential_rotation_threshold = FileState.CONFIG['max_users']*10
+            session_manager.update_attempts(client_ip, current_time)
 
             with ServerState.credentials_lock:
                 ServerState.global_attempts += 1
                 attempts = ServerState.global_attempts
 
-            if attempts > FileState.CONFIG['max_users']*100:
+            if attempts > security_shutdown_threshold:
                 server.shutdown_server(
                     "Security shutdown triggered "
                     f"after {attempts} rapid login attempts"
                 )
 
-            if attempts % (FileState.CONFIG['max_users']*10) == 0:
+            if attempts % credential_rotation_threshold == 0:
                 credentials.generate_credentials("Too many failed attempts on server")
 
             HTMLHandler.send_login_page(self, message="Invalid username or otp.")
 
-    def list_directory(self, path):
+    def list_directory(self, path: str):
         try:
             with os.scandir(path) as entries:
                 file_list = list(entries)

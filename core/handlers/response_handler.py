@@ -40,6 +40,15 @@ class ResponseHandler:
                 handler.send_header(key, val)
 
         handler.end_headers()    
+
+    @staticmethod
+    def send_blocked_response(handler: ReqHandler, content: str) -> None:
+        ResponseHandler.send_http_response(
+            handler,
+            403, "Access Denied",
+            content_type='text/html; charset=utf-8',
+            content=content
+        )
     
     @staticmethod
     def send_http_response(
