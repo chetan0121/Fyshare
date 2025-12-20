@@ -44,7 +44,8 @@ class SessionManager:
 
             for token in expired:
                 logger.emit_info(
-                    f"Session expired for User({self.sessions[token]['ip']})"
+                    f"Session expired for User",
+                    f"IP: {self.sessions[token]['ip']}"
                 )
                 del self.sessions[token]
 

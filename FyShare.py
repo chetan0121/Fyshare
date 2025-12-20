@@ -50,7 +50,8 @@ def main() -> None:
     # First-time startup banner
     startup_url = f"http://{ServerState.local_ip}:{ServerState.port}"
     logger.log_info(
-        f"Server started → {startup_url}", "Serving: '{FileState.ROOT_DIR}'",
+        f"Server started → {startup_url}",
+        f"Serving: '{FileState.ROOT_DIR}'",
         prefix=f"{'='*100}\n"
     )
 

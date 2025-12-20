@@ -39,8 +39,10 @@ def normalize_config(config: dict) -> dict:
             # Cache duration for static files (HTML, CSS, etc...)
             "cache_time_out_s": float(config["default_cache_time_out_seconds"])     
         }
-    except ValueError:
-        raise ConfigError(f"invalid keys in config")
+    except ValueError as v:
+        raise ConfigError(f"invalid value type in config: {str(v)}")
+    except KeyError as k:
+        raise ConfigError(f"missing required key: {str(k)}")
 
     return CONFIG
 
@@ -53,25 +55,37 @@ def check_config(CONFIG: dict) -> None:
         raise ConfigError("'idle_timeout_minutes' must be between 1 and 1440 minutes")
 
     if CONFIG['refresh_time_s'] <= 0 or CONFIG['refresh_time_s'] > 5:
-        raise ConfigError("'refresh_time_seconds' must be between 0 and 5 seconds (excluding 0)")
+        raise ConfigError(
+            "'refresh_time_seconds' must be between 0 and 5 seconds (excluding 0)"
+        )
 
-    if CONFIG['max_attempts'] < 1 or CONFIG['max_attempts'] >= CONFIG['max_total_attempts']:
+    if CONFIG['max_attempts'] < 1 or \
+        CONFIG['max_attempts'] >= CONFIG['max_total_attempts']:
         raise ConfigError("'max_attempts' must be between 1 and 'max_total_attempts'")
     
     if CONFIG['max_total_attempts'] > 50:
         raise ConfigError("'max_total_attempts_per_ip' can't be more than 50 numbers")
 
     if CONFIG['cooldown_s'] < 0 or CONFIG['cooldown_s'] >= CONFIG['block_time_m']*60:
-        raise ConfigError("invalid 'cooldown_seconds', it must be between 0 and 'block_time_minutes'")
+        raise ConfigError(
+            "invalid 'cooldown_seconds', "
+            "it must be between 0 and 'block_time_minutes'"
+        )
     
     if CONFIG['block_time_m'] > CONFIG['cleanup_timeout_m']:
-        raise ConfigError("'block_time_minutes' can't be more than 'cleanup_timeout_minutes'")
+        raise ConfigError(
+            "'block_time_minutes' can't be more than 'cleanup_timeout_minutes'"
+        )
     
     if CONFIG['cleanup_timeout_m'] < 10 or CONFIG['cleanup_timeout_m'] > 120:
-        raise ConfigError("'cleanup_timeout_minutes' must be between 10 and 120 minutes")
+        raise ConfigError(
+            "'cleanup_timeout_minutes' must be between 10 and 120 minutes"
+        )
 
     if CONFIG['cache_time_out_s'] < 0 or CONFIG['cache_time_out_s'] > 86400:
-        raise ConfigError("'default_cache_time_out_seconds' must be between 0 and 86400")
+        raise ConfigError(
+            "'default_cache_time_out_seconds' must be between 0 and 86400"
+        )
 
 
 def load_config(config_path) -> Optional[dict]:
@@ -87,7 +101,11 @@ def load_config(config_path) -> Optional[dict]:
     return CONFIG
 
 def backup_config():
-    logger.print_info("Do you want to reset the current config to default?", end="\n")
+    logger.print_info(
+        "Do you want to reset whole config to default?", 
+        end="\n", 
+        lvl_tag=False
+    )
     try:
         opt = input("Enter (y/n) => ").strip().lower()
     except KeyboardInterrupt:
@@ -104,15 +122,23 @@ def backup_config():
             logger.print_error(str(e))
             return False
 
-        logger.print_info(f"Config-file '{config_path.name}' successfully restored from '{source_path.name}'", end="\n")
+        logger.print_info(
+            f"Config-file '{config_path.name}' successfully restored "
+            f"from '{source_path.name}'",
+            end="\n"
+        )
         return True
 
     elif opt == "n" or opt == "no":
-        logger.print_info(f"Reset cancelled by user, Current config '{config_path.name}' was kept unchanged.", end="\n")
+        logger.print_info(
+             "Reset cancelled by user, "
+            f"Current config '{config_path.name}' was kept unchanged.",
+            end="\n"
+        )
         logger.print_error("Failed to recover config: Reset cancelled")
-        return False
     
     else:
         logger.print_error("Failed to recover config: Invalid input!")
-        return False
+
+    return False
     

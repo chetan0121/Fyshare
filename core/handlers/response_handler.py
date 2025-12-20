@@ -4,8 +4,6 @@ from typing import Optional, Union
 from http.server import SimpleHTTPRequestHandler as ReqHandler
 from ..utils import logger
 
-_MAX_SIZE = 10 * 1024**3  # bytes (10 GiB)
-
 class ResponseHandler:
     """Centralized response management"""
 
@@ -92,7 +90,7 @@ class ResponseHandler:
         if content:
             if is_path:
                 logger.emit_warning(
-                    "Response handling: got content and file path both",
+                    "during response handling: got both content and file path",
                     "Using content by default"
                 )
                 is_path = False
@@ -107,14 +105,6 @@ class ResponseHandler:
             file_size = path.stat().st_size
         else:
             raise ValueError("Got no response to send")
-        
-        # Size limit check
-        if file_size > _MAX_SIZE:
-            logger.emit_warning(
-                f"Response handling: Unable to send file",
-                "Exceeded the max file size limit"
-            )
-            return
         
         # Send status code with/without message
         handler.send_response(status, message)

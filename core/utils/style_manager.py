@@ -83,8 +83,8 @@ class Style:
         :param styles: Styles to be applied, tuple of raw integers (from ANSI codes)
             
         Usage: 
-            1. styled("I am Bold Red", Colors.RED, TextStyle.BOLD)
-            2. styled("Manually styling, Bold yellow txt", 1, 33)
+            1. red_txt = styled("I am Bold Red", Colors.RED, TextStyle.BOLD)
+            2. yellow_txt = styled("Manually styling, Bold yellow txt", 1, 33)
         """
         # Check if empty
         if not styles:
@@ -124,7 +124,7 @@ class TextStyle:
     HIDDEN    = 8    
 
     # Custom style
-    BRIGHT = 200         # Will produce same color as bold, but will not change font weight
+    BRIGHT = 200
     BRIGHT_BG = 300
 
 class Color:

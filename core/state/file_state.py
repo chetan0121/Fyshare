@@ -72,7 +72,9 @@ class FileState:
         
         # Check if path is not in project folders to avoid conflicts
         if FileState.base_dir in path.parents or path == FileState.base_dir:
-            raise StateError(f"Root directory '{path}' cannot be inside FyShare folder")
+            raise StateError(
+                f"Root directory '{path}' cannot be inside FyShare folder"
+            )
         
         # Save new path to config as default
         if opt == 2:

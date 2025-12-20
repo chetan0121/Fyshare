@@ -19,10 +19,9 @@ def init_server():
     port = ServerState.port
     try:
         ServerState.Server = http_server.ThreadingHTTPServer(("", port), FileHandler)
-    except OSError as e:
+    except OSError:
         logger.print_error(
-            f"Server: Failed to bind to port[{port}], Please try again.",
-            f"\nMore Details: {str(e)}"
+            f"Server: Failed to bind to port[{port}], Please try again."
         )
         exit(1)
 
