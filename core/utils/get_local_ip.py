@@ -168,7 +168,7 @@ def is_valid_ip(ip: str) -> bool:
             num = int(part)
             if num < 0 or num > 255:
                 return False
-    except (ValueError, ValueError):
+    except (ValueError, TypeError):
         return False
     
     return True
