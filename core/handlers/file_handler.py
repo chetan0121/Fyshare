@@ -1,8 +1,9 @@
 import time
 import os
-import http.server as http_server
 from pathlib import Path
-from urllib.parse import parse_qs
+import urllib.parse
+from http import HTTPStatus
+from http import server as http_server
 from .html_handler import HTMLHandler
 from ..utils import logger
 from .. import credentials, server
@@ -13,11 +14,20 @@ from ..state import FileState, ServerState
 class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
 
     def __init__(self, *args, **kwargs):
+        self.config = FileState.CONFIG
+        self.root_dir = str(FileState.ROOT_DIR)
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
 
-    def copyfile(self, source, outputfile):
+    def copyfile(self, source, destination, chunk = 64):
+        """
+        copies data from source to destination
+        chunk: By default 64 in KB
+        """
+        # Convert to KB
+        chunk_size = chunk * 1024       
         try:
-            super().copyfile(source, outputfile)
+            while (chunk := source.read(chunk_size)):
+                destination.write(chunk)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 
@@ -38,7 +48,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             if favicon_path.exists():
                 ResponseHandler.send_http_response(
                     self,
-                    cache_duration=FileState.CONFIG['cache_time_out_s'],
+                    cache_duration=self.config['cache_time_out_s'],
                     file_path=favicon_path
                 )
             else:
@@ -50,7 +60,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             session = session_manager.get_session(session_token)
             if session_token and session:
                 curr_ip = session['ip']
-                logger.emit_info(f"User({curr_ip}) logged-out")
+                logger.emit_info("User logged-out", f"IP: {curr_ip}")
                 session_manager.remove_session(session_token)
 
             # Headers
@@ -73,21 +83,26 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             if not file_path.exists() or not file_path.is_file():
                 self.send_error(404, "File not found")
                 logger.emit_warning(
-                    f"User({client_ip}) tried to access invalid static file."
+                     "User tried to access invalid static file.",
+                    f"IP: {client_ip}",
+                    f"Path: {file_path}"
                 )
                 return
 
             try:
                 ResponseHandler.send_http_response(
                     self,
-                    cache_duration=FileState.CONFIG['cache_time_out_s'],
+                    cache_duration=self.config['cache_time_out_s'],
                     file_path=file_path,
                     chunk_size=64
                 )
                 return  # Exit after success   
             except Exception as e:
                 self.send_error(500, f"Internal Server Error")
-                logger.emit_error(f"Serving file: {str(e)}")
+                logger.emit_error(
+                    f"During static file serve: {str(e)}",
+                    f"File: {file_path}"
+                )
                 return
 
         if not self.check_authentication():
@@ -100,12 +115,15 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                 try:
                     ResponseHandler.send_http_response(
                         self,
-                        cache_duration=FileState.CONFIG['cache_time_out_s'],
+                        cache_duration=self.config['cache_time_out_s'],
                         file_path=file_path
                     )
                 except Exception as e:
                     self.send_error(500, f"Error: Something went wrong.")
-                    logger.emit_error(f"Serving html file: {str(e)}")
+                    logger.emit_error(
+                        f"Serving html file: {str(e)}",
+                        f"HTML FILE: {file_path}"
+                    )
             else:
                 self.send_error(404, "File not found")
         else:
@@ -133,10 +151,10 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         try:
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length).decode('utf-8')
-            params = parse_qs(post_data)
+            params = urllib.parse.parse_qs(post_data)
         except Exception as e:
             logger.emit_error(f"Decoding POST data: {str(e)}")
-            self.send_error(400, "Error decoding POST data")    
+            self.send_error(400, "Error decoding your request")    
             return
 
         # Safely type conversion
@@ -159,7 +177,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             )
             return
 
-        if len(session_manager.sessions) >= FileState.CONFIG['max_users']:
+        if len(session_manager.sessions) >= self.config['max_users']:
             HTMLHandler.send_login_page(
                 self, 
                 message="Server busy—too many users. Try again later."
@@ -187,10 +205,11 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                 status=302,
                 headers=[home_page, set_cookie]
             )
-            logger.emit_info(f"User({client_ip}) logged-in")
+            logger.emit_info("User logged-in", f"IP: {client_ip}")
+
         else:
-            security_shutdown_threshold = FileState.CONFIG['max_users']*100
-            credential_rotation_threshold = FileState.CONFIG['max_users']*10
+            security_shutdown_threshold = self.config['max_users']*100
+            credential_rotation_threshold = self.config['max_users']*10
             session_manager.update_attempts(client_ip, current_time)
 
             with ServerState.credentials_lock:
@@ -224,17 +243,52 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             return None
 
         file_list.sort(key=lambda a: (not a.is_dir(), a.name.lower()))
-        root_dir = str(FileState.ROOT_DIR)
-        display_path = os.path.relpath(path, root_dir or '.')
+        display_path = os.path.relpath(path, self.root_dir or '.')
 
         try:
             response = HTMLHandler.generate_html(file_list, display_path)
             ResponseHandler.send_http_response(
                 self,
-                cache_duration=FileState.CONFIG['cache_time_out_s'],
+                cache_duration=self.config['cache_time_out_s'],
                 content_type='text/html; charset=utf-8',
                 content=response
             )
         except Exception as e:
             self.send_error(500, f"Error generating response.")
             logger.emit_error(f"Generating response: {str(e)}")   
+
+    def send_head(self):
+        path = self.translate_path(self.path)
+        f = None
+        if os.path.isdir(path):
+            if not self.path.endswith(('/', '%2f', '%2F')):
+                self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+                self.send_header("Location", self.path + "/")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return None
+            
+            return self.list_directory(path)
+            
+        ctype = self.guess_type(path)
+        if path.endswith("/"):
+            self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+            return None
+        
+        try:
+            f = open(path, 'rb')
+        except OSError:
+            self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+            return None
+
+        try:
+            fs = os.fstat(f.fileno())
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-type", ctype)
+            self.send_header("Content-Length", str(fs[6]))
+            self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
+            self.end_headers()
+            return f
+        except Exception as e:
+            logger.emit_error(f"Sending head: {str(e)}")
+            f.close()
