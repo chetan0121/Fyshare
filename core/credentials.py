@@ -49,7 +49,7 @@ def generate_credentials(message = str("")):
         print(f"   • Max users : {FileState.CONFIG['max_users']} Allowed")
         print(f"   • Time Out  : {FileState.CONFIG['idle_timeout_m']} minutes")
         
-        Style.print_style(separator_line, TextStyle.BOLD)
+        Style.print_style(f"{separator_line}\n", TextStyle.BOLD)
 
         # logging
         reason = message if message else 'None'

@@ -31,7 +31,8 @@ class FileState:
         (120, "2 hours"),
     ]
 
-    def set_root_path():
+    @staticmethod
+    def set_root_path() -> None:
         """Setup root path - Run this only after Config loaded"""
         if not FileState.CONFIG:
             raise StateError("Refined CONFIG not found")
@@ -89,7 +90,8 @@ class FileState:
         # Set root dir
         FileState.ROOT_DIR = path
 
-    def set_templates(path: Union[str, Path]):
+    @staticmethod
+    def set_templates(path: Union[str, Path]) -> None:
         """Load templates (htmls)"""
         path = helper.refine_path(path, False)
         helper.is_valid_dir(path)
@@ -113,7 +115,8 @@ class FileState:
         options_html = "\n".join(opt_list_html)
         FileState.LOGIN_HTML = login_html.replace('{{options}}', options_html)
 
-    def set_static_dir(path: Union[str, Path]):
+    @staticmethod
+    def set_static_dir(path: Union[str, Path]) -> None:
         """Set and validate static directory path before using it"""
         path = helper.refine_path(path, False)
         helper.is_valid_dir(path)

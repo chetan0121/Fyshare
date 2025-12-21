@@ -51,13 +51,12 @@ def main() -> None:
     startup_url = f"http://{ServerState.local_ip}:{ServerState.port}"
     logger.log_info(
         f"Server started → {startup_url}",
-        f"Serving: '{FileState.ROOT_DIR}'",
+        f"Root Dir: '{FileState.ROOT_DIR}'",
         prefix=f"{'='*100}\n"
     )
 
     # Generate and print credentials
     credentials.generate_credentials("New server started")
-    print("Refer to ReadMe.md for secure file-sharing instructions.\n")
 
     # Start the server
     try:

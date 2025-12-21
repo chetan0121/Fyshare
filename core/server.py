@@ -13,12 +13,12 @@ def init_server():
     - Create and set instance of ThreadingHTTPServer with Custom Filehandler
     Note: Run this only after -> state.init_server_state()
     """
-    if not ServerState.is_server_state:
+    if not ServerState.is_initialized:
         logger.print_error("Can't run init_server before init_server_state")
 
     port = ServerState.port
     try:
-        ServerState.Server = http_server.ThreadingHTTPServer(("", port), FileHandler)
+        ServerState.server = http_server.ThreadingHTTPServer(("", port), FileHandler)
     except OSError:
         logger.print_error(
             f"Server: Failed to bind to port[{port}], Please try again."
@@ -26,10 +26,11 @@ def init_server():
         exit(1)
 
 def shutdown_server(msg="Shutdown the Server"):
-    if ServerState.Server:
+    if ServerState.server:
         try:
+            ServerState.server.server_close()
             ServerState.is_running = False
-            ServerState.Server.server_close()
+            ServerState.server = None
         except Exception as e:
             logger.emit_error(f"During shutdown: {str(e)}")
             return
@@ -41,14 +42,12 @@ def shutdown_server(msg="Shutdown the Server"):
 def run_server():
     # Make Alias of server
     S = ServerState
+    server  = S.server
+    session_manager = S.session_manager
 
     # Check is server and session_manager initialized
-    if not S.Server or not S.session_manager:
+    if not server or not session_manager:
         raise AttributeError("Instance of SessionManager not found")
-
-    # Alias
-    server  = S.Server
-    session = S.session_manager
 
     # Set refresh time
     server.timeout = FileState.CONFIG["refresh_time_s"]
@@ -62,8 +61,8 @@ def run_server():
     S.is_running = True
     while S.is_running:
         # Clean expired sessions & attempts and update current time
-        session.clean_expired_attempts()
-        session.clean_expired_sessions()
+        session_manager.clean_expired_attempts()
+        session_manager.clean_expired_sessions()
         current_time = time.monotonic()
 
         # Auto update credentials after cleanUp time
@@ -73,9 +72,9 @@ def run_server():
             credentials.generate_credentials("Old Credentials expired!")
 
         # Handle inactivity timeout
-        if not session.sessions and S.inactivity_start_ts is None:
+        if not session_manager.sessions and S.inactivity_start_ts is None:
             S.inactivity_start_ts = current_time
-        elif session.sessions:
+        elif session_manager.sessions:
             S.inactivity_start_ts = None
 
         # Handle incoming server requests
