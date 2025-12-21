@@ -4,6 +4,7 @@ from pathlib import Path
 import urllib.parse
 from http import HTTPStatus
 from http import server as http_server
+
 from .html_handler import HTMLHandler
 from ..utils import logger
 from .. import credentials, server
@@ -18,16 +19,19 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         self.root_dir = str(FileState.ROOT_DIR)
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
 
-    def copyfile(self, source, destination, chunk = 64):
+    def copyfile(self, source, destination, chunk_kb = 64.0):
         """
         copies data from source to destination
-        chunk: By default 64 in KB
+        chunk_kb: By default 64 in KB
         """
+        if chunk_kb <= 0:
+            raise ValueError("chunk_size must be a positive integer")
+        
         # Convert to KB
-        chunk_size = chunk * 1024       
+        chunk_size = int(chunk_kb * 1024)       
         try:
-            while (chunk := source.read(chunk_size)):
-                destination.write(chunk)
+            while (data := source.read(chunk_size)):
+                destination.write(data)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 
@@ -38,8 +42,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
 
         if session_manager.is_blocked(client_ip, current_time):
             ResponseHandler.send_blocked_response(
-                self, 
-                HTMLHandler.blocked_html_message
+                self, HTMLHandler.blocked_html_message
             )
             return
 
@@ -47,9 +50,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             favicon_path = FileState.STATIC_DIR / 'favicon.ico'
             if favicon_path.exists():
                 ResponseHandler.send_http_response(
-                    self,
-                    cache_duration=self.config['cache_time_out_s'],
-                    file_path=favicon_path
+                    self, file_path=favicon_path
                 )
             else:
                 self.send_error(404, "Favicon not found")
@@ -91,12 +92,9 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
 
             try:
                 ResponseHandler.send_http_response(
-                    self,
-                    cache_duration=self.config['cache_time_out_s'],
-                    file_path=file_path,
-                    chunk_size=64
+                    self, file_path=file_path, chunk_size=64
                 )
-                return  # Exit after success   
+                return
             except Exception as e:
                 self.send_error(500, f"Internal Server Error")
                 logger.emit_error(
@@ -114,9 +112,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             if file_path.exists() and file_path.is_file():
                 try:
                     ResponseHandler.send_http_response(
-                        self,
-                        cache_duration=self.config['cache_time_out_s'],
-                        file_path=file_path
+                        self, file_path=file_path
                     )
                 except Exception as e:
                     self.send_error(500, f"Error: Something went wrong.")
@@ -126,8 +122,15 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                     )
             else:
                 self.send_error(404, "File not found")
-        else:
-            super().do_GET()
+            return    
+        
+        # handle directory/file serving
+        file_obj = self.send_head()
+        if file_obj:
+            try:
+                self.copyfile(file_obj, self.wfile)
+            finally:
+                file_obj.close()
 
     def do_POST(self):
         client_ip = self.client_address[0]
@@ -143,8 +146,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         
         if session_manager.is_inCool(client_ip, current_time):
             HTMLHandler.send_login_page(
-                self,
-                message="Too many attempts. Try again later."
+                self, message="Too many attempts. Try again later." 
             )
             return
         
@@ -153,7 +155,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             post_data = self.rfile.read(content_length).decode('utf-8')
             params = urllib.parse.parse_qs(post_data)
         except Exception as e:
-            logger.emit_error(f"Decoding POST data: {str(e)}")
+            logger.emit_error(f"Decoding POST data: {str(e)}", f"IP: {client_ip}")
             self.send_error(400, "Error decoding your request")    
             return
 
@@ -167,7 +169,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             return
 
         if not self.validate_credentials(
-            submitted_username, 
+            submitted_username,
             submitted_otp, 
             timeout_seconds
         ):
@@ -249,7 +251,6 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             response = HTMLHandler.generate_html(file_list, display_path)
             ResponseHandler.send_http_response(
                 self,
-                cache_duration=self.config['cache_time_out_s'],
                 content_type='text/html; charset=utf-8',
                 content=response
             )
@@ -259,7 +260,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
 
     def send_head(self):
         path = self.translate_path(self.path)
-        f = None
+
         if os.path.isdir(path):
             if not self.path.endswith(('/', '%2f', '%2F')):
                 self.send_response(HTTPStatus.MOVED_PERMANENTLY)
@@ -270,25 +271,21 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             
             return self.list_directory(path)
             
-        ctype = self.guess_type(path)
         if path.endswith("/"):
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return None
         
         try:
             f = open(path, 'rb')
+            fs = os.fstat(f.fileno())
         except OSError:
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+            f.close()
             return None
 
-        try:
-            fs = os.fstat(f.fileno())
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-type", ctype)
-            self.send_header("Content-Length", str(fs[6]))
-            self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
-            self.end_headers()
-            return f
-        except Exception as e:
-            logger.emit_error(f"Sending head: {str(e)}")
-            f.close()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-type", self.guess_type(path))
+        self.send_header("Content-Length", str(fs.st_size))
+        self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
+        self.end_headers()
+        return f
