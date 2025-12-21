@@ -34,10 +34,7 @@ def normalize_config(config: dict) -> dict:
             "block_time_m": int(config["block_time_minutes"]),                      
 
             # Time in minutes, before old attempts are cleaned up
-            "cleanup_timeout_m": int(config["cleanup_timeout_minutes"]),            
-
-            # Cache duration for static files (HTML, CSS, etc...)
-            "cache_time_out_s": float(config["default_cache_time_out_seconds"])     
+            "cleanup_timeout_m": int(config["cleanup_timeout_minutes"])
         }
     except ValueError as v:
         raise ConfigError(f"invalid value type in config: {str(v)}")
@@ -80,11 +77,6 @@ def check_config(CONFIG: dict) -> None:
     if CONFIG['cleanup_timeout_m'] < 10 or CONFIG['cleanup_timeout_m'] > 120:
         raise ConfigError(
             "'cleanup_timeout_minutes' must be between 10 and 120 minutes"
-        )
-
-    if CONFIG['cache_time_out_s'] < 0 or CONFIG['cache_time_out_s'] > 86400:
-        raise ConfigError(
-            "'default_cache_time_out_seconds' must be between 0 and 86400"
         )
 
 
