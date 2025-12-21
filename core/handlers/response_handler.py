@@ -1,6 +1,6 @@
 import mimetypes
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Sequence
 from http.server import SimpleHTTPRequestHandler as ReqHandler
 from ..utils import logger
 
@@ -8,31 +8,30 @@ class ResponseHandler:
     """Centralized response management"""
 
     @staticmethod
-    def send_security_headers(self: ReqHandler, cache_time = 0.0):
-        self.send_header("X-Frame-Options", "DENY")
-        self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Content-Security-Policy', "default-src 'self';")
-        self.send_header('Referrer-Policy', 'no-referrer')
-        if cache_time > 0:
-            self.send_header('Cache-Control', f'max-age={cache_time}')
-        else:
-            self.send_header('Cache-Control', 'no-store, must-revalidate')
+    def get_security_headers() -> list[tuple[str, str]]:
+        headers = [
+            ("X-Frame-Options", "DENY"),
+            ("X-Content-Type-Options", "nosniff"),
+            ("Content-Security-Policy", "default-src 'self';"),
+            ("Referrer-Policy", "no-referrer"),
+        ]
+
+        return headers
 
     @staticmethod
     def send_extra_headers(
-        handler: ReqHandler, 
+        handler: ReqHandler,
         status=200, 
-        msg="", 
-        headers: list[tuple[str, str]] = None,
-        cache_time = 0.0
+        msg: Optional[str] = None,
+        headers: Optional[Sequence[tuple[str, str]]] = None,
     ) -> None:
-        
-        if msg:
-            handler.send_response(status, msg)
-        else:
-            handler.send_response(status)    
+        handler.send_response(status, msg)
 
-        ResponseHandler.send_security_headers(handler, cache_time)
+        # Send security headers
+        for key, val in ResponseHandler.get_security_headers():
+            handler.send_header(key, val)
+
+        # Send extra headers from param
         if headers:
             for key, val in headers:
                 handler.send_header(key, val)
@@ -53,11 +52,10 @@ class ResponseHandler:
         handler: ReqHandler,
         status: int = 200,
         message: Optional[str] = None,
-        cache_duration: float = 0.0,
         content_type: str = "text/plain",
         content: Optional[Union[str, bytes]] = None,
         file_path: Optional[str] = None,
-        chunk_size: int = 32,
+        chunk_size: int = 32.0
     ) -> None:
         """
         Send an HTTP response (headers + body) from either an in-memory content
@@ -69,7 +67,6 @@ class ResponseHandler:
           send_header, end_headers and have a writable .wfile).
         - status: HTTP status code to send (default 200).
         - message: Optional reason phrase to include with the status line.
-        - cache_duration: Cache-Control max-age value in seconds.
         - content_type: Content-Type header value. If sending a file_path and
           content_type is the default, MIME will be guessed from filename.
         - content: The content to send (Optional if you gives file_path)
@@ -78,10 +75,10 @@ class ResponseHandler:
         - encoding: Encoding used when content is str (default utf-8).
         """
         if chunk_size <= 0:
-            raise ValueError("chunk_size must be a positive integer (bytes)")
+            raise ValueError("chunk_size must be a positive integer")
 
         # Convert to bytes
-        chunk_size = chunk_size * 1024     
+        chunk = int(chunk_size * 1024)  
 
         # Check if file exist
         path = Path(file_path) if file_path else None
@@ -101,31 +98,36 @@ class ResponseHandler:
                 body = bytes(content)
 
             file_size = len(body)
+
         elif is_path:
             file_size = path.stat().st_size
+
         else:
             raise ValueError("Got no response to send")
         
-        # Send status code with/without message
-        handler.send_response(status, message)
-
         # Guess the MIME type
         if is_path and content_type == "text/plain":
             guessed = mimetypes.guess_type(path.name)[0]
             if guessed:
                 content_type = str(guessed)
 
-        # Headers
-        ResponseHandler.send_security_headers(handler, cache_duration)
-        handler.send_header("Content-Type", content_type)
-        handler.send_header("Content-Length", str(file_size))
-        handler.end_headers()    
+        # Send headers
+        extra_headers = [
+            ("Content-Type", content_type),
+            ("Content-Length", str(file_size)),
+        ]
+        
+        ResponseHandler.send_extra_headers(
+            handler,
+            status, message,
+            extra_headers
+        )
 
         # Body
         if is_path:
             with path.open('rb') as f:
-                while (chunk := f.read(chunk_size)):
-                    handler.wfile.write(chunk)
+                while (data := f.read(chunk)):
+                    handler.wfile.write(data)
         else:
-            for i in range(0, file_size, chunk_size):
-                handler.wfile.write(body[i:i + chunk_size])
+            for i in range(0, file_size, chunk):
+                handler.wfile.write(body[i:i + chunk])
