@@ -1,7 +1,7 @@
 # FyShare v2
 
 FyShare is a lightweight Python-based local file sharing server with a clean HTML/CSS/JS interface. It lets you share files securely over your Local Area Network (LAN — e.g. your home Wi-Fi) using one-time credentials.  
-The server is fully self-contained, requires **no external dependencies**, and runs on Python 3.10+
+The server is fully self-contained, requires **no external dependencies**, and runs on Python 3.9+
 
 ---
 
@@ -11,7 +11,7 @@ The server is fully self-contained, requires **no external dependencies**, and r
 Use these steps to host or share directories from your computer:
 
 1. **Install Python:**  
-   Make sure Python v3.10+ is installed. You can check with:  
+   Make sure Python v3.9+ is installed. You can check with:  
    `python --version` OR `py --version`
 
    if python not found or not same as required version, then download latest Python from 
@@ -82,7 +82,7 @@ Use these steps to host or share files directly from your Android device:
 
 ## Notes
 
-- Requires **Python 3.10+** to run.  
+- Requires **Python 3.9+** to run.  
 - Run only on **trusted networks** (with password protected hotspot); avoid running over public Wi-Fi.  
 - You can stop the server manually with **Ctrl+C** in the terminal.
 - You can change settings such as **number of users**, **Server refresh time** and other configurations in the `config.json` file.
