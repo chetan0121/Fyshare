@@ -13,7 +13,8 @@
     --anim-duration: 0ms;
 }
 :root.dark-theme {
-    --primary: #2196f3;
+    /* --primary: #2196f3; */
+    --primary: #4FC1FF;
     --secondary: #1e272e;
     --third: #1e1e1e;
     --text: #e0e0e0;
@@ -161,7 +162,7 @@ h1 {
         }
 
         :root.dark-theme .breadcrumb a:hover {
-            color: #1169c8;
+            color: #3d93c2;
         }
 
     .breadcrumb-sep {

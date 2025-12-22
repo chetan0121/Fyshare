@@ -1,13 +1,26 @@
-# Python cache
+# Python
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
 *.pyc
 
-# Temp files
-FolderStructure.md
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+*.egg
 
 # Logs & temp
 logs
 *.log
+*.tmp
 temp/
 tmp/
 

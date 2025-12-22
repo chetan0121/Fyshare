@@ -1,0 +1,84 @@
+name: CI - Python Compatibility
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+
+    steps:
+      # Checkout source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install chosen Python version
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      # Install dependencies
+      - name: Install dependencies (if exists)
+        run: |
+          if [ -f requirements.txt ]; then
+            echo "Installing from requirements.txt"
+            pip install -r requirements.txt
+          else
+            echo "No requirements.txt found, skipping installation"
+          fi
+
+      # Debug info
+      - name: Display Python and installed packages
+        run: |
+          echo "Python version:"
+          python --version
+          echo
+          echo "Installed packages:"
+          pip list
+
+      # Smoke test
+      - name: Startup Smoke Test (FyShare.py)
+        id: smoke
+        env:
+          FYSHARE_CI: "1"
+        run: |
+          # Start the app with timeout so CI won't hang forever
+          timeout 10s python FyShare.py &
+          APP_PID=$!
+
+          # Wait a bit for startup
+          sleep 5
+
+          # Determine health
+          if ps -p $APP_PID > /dev/null; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+            echo "FyShare.py OK: running after 5s"
+            STATUS=0
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+            echo "FyShare.py FAILED: crashed during startup!"
+            STATUS=1
+          fi
+
+          # Cleanup app
+          kill $APP_PID 2>/dev/null || true
+          wait $APP_PID 2>/dev/null || true
+          pkill -f FyShare.py 2>/dev/null || true
+
+          exit $STATUS

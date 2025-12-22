@@ -37,7 +37,6 @@ themeToggle.addEventListener('click', () => {
         const isDark = root.classList.contains('dark-theme');
         updateTheme(isDark);
     }, anim_duration/2);
-    sessionStorage.setItem('theme')
 });
 
 

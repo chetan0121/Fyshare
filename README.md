@@ -1,21 +1,24 @@
-# FyShare
+# FyShare v2
 
 FyShare is a lightweight Python-based local file sharing server with a clean HTML/CSS/JS interface. It lets you share files securely over your Local Area Network (LAN — e.g. your home Wi-Fi) using one-time credentials.  
-The server is fully self-contained, requires **no external dependencies**, and runs on Python 3.6+  
+The server is fully self-contained, requires **no external dependencies**, and runs on Python 3.9+
 
 ---
 
 ## Setup
 
 ### Steps for Desktop (Windows, Mac, Linux)  
-Use these steps to host or share directories from your computer:  
+Use these steps to host or share directories from your computer:
 
 1. **Install Python:**  
-   Make sure Python 3.6+ is installed. You can check with:  
+   Make sure Python v3.9+ is installed. You can check with:  
    `python --version` OR `py --version`
 
+   if python not found or not same as required version, then download latest Python from 
+   "https://www.python.org/"
+
 2. **Get FyShare:**  
-   Clone this repository or download it as a ZIP file and extract it:  
+   Clone this repository or download it as a ZIP file and extract it:
    ```bash
    git clone https://github.com/chetan0121/Fyshare.git
    cd Fyshare
@@ -25,10 +28,10 @@ Use these steps to host or share directories from your computer:
    python FyShare.py
    ```
 4. **Choose the directory to share:**  
-   Enter the path you want to host (or set the default path in `config.json`, e.g., `C:/Users`).  
+   Enter the path you want to host (e.g. C:/Users).  
 
 5. **Share the access link:**  
-   FyShare will display a URL in terminal. Open it on the receiver’s device (phone, another PC, etc.) in a browser.  
+   FyShare will display URL in terminal. Open it on the receiver’s device (phone, another PC, etc.) in a browser.
 
 6. **Log in:**  
    Enter the Username and OTP shown in your terminal.  
@@ -54,46 +57,45 @@ Use these steps to host or share files directly from your Android device:
    Allow permission when prompted.  
 
 4. **Get FyShare:**  
-   Download this repository as a ZIP file and extract it in a location accessible to Termux (e.g. /storage/emulated/0/Download).
+   Download this repository as a ZIP file and extract it in a location accessible to Termux (e.g. Download).
 
 5. **Run the server:**  
-   Then copy the path of FyShare.py file and run:  
+   Then copy the path of FyShare.py file from the extracted folder and run using:
    ```bash
    python "copied_path"
    ```
    - Command would be look like this -- `python "/storage/emulated/0/Download/Fyshare-main/FyShare.py"`
 
 6. **Choose the directory to serve:**  
-   Enter the path to host (or set the default root_path in `config.json`, e.g. `/storage/emulated/0`).  
+   Enter the path to host (e.g. `/storage/emulated/0`).  
 
 7. **Share the access link:**  
    Use the displayed URL and enter it on the receiver’s device in a browser. 
 
 8. **Log in:**  
-   Enter the provided Username and OTP in Login page.
+   Enter the provided Username and OTP fro terminal to login page.
    
 9. **Start sharing:**  
-   Browse and download files over your local network(LAN).
+   Browse and download files over your local network (LAN) without internet.
 
 ---
 
 ## Notes
 
-- Requires **Python 3.6+** to run.  
+- Requires **Python 3.9+** to run.  
 - Run only on **trusted networks** (with password protected hotspot); avoid running over public Wi-Fi.  
-- Keep your credentials private to prevent unauthorized access.
 - You can stop the server manually with **Ctrl+C** in the terminal.
-- You can change settings such as **number of users**, the default **root_directory** path, **Server refresh time** and other configurations in the `config.json` file.
+- You can change settings such as **number of users**, **Server refresh time** and other configurations in the `config.json` file.
 
 
 ## Features
 
-- **Offline LAN sharing:** Works without internet; share files directly over your local network (Hotspot / WiFi).  
-- **Randomized security:** Random port selection, unique username, and OTP per session.
-- **Session cookies:** Keeps users logged in until session expires (cookies only store session tokens; no tracking) or manually logged-out.
-- **Max user limit:** Restrict concurrent users (default 1, configurable in `config.json`).
+- **Offline LAN sharing:** Works without internet; share files directly over your local network.  
+- **Randomized security:** Random port selection, unique username, and OTP per session with limited time.
+- **Session cookies:** Keeps users logged in until session expires or manually logged-out.
+- **Max user limit:** Restrict concurrent users, change max user limit in config.json
 - **Styled web UI:** Clean HTML/CSS/JS interface for browsing and downloading files.
-- **Rate limiting & protection:** Tracks failed attempts per IP, applies cooldowns and temporary blocks to prevent abuse.  
+- **Rate limiting & protection:** Tracks failed attempts per IP, applies cooldowns and temporary blocks to prevent abuse.
 - **Inactivity shutdown:** Automatically stops the server after a configurable idle timeout.
 - **Easy customization:** Modify HTML and CSS in `templates/` and `static/` for a personalized look.
 
