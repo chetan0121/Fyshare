@@ -13,7 +13,6 @@
     --anim-duration: 0ms;
 }
 :root.dark-theme {
-    /* --primary: #2196f3; */
     --primary: #4FC1FF;
     --secondary: #1e272e;
     --third: #1e1e1e;
