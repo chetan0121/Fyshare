@@ -5,12 +5,7 @@ const themeIcon = document.querySelector('.theme-icon');
 const anim_duration = 400; //In ms
 document.documentElement.style.setProperty('--anim-duration', anim_duration+'ms');
 
-const savedTheme = sessionStorage.getItem('theme'); // Get theme preference if saved
-if (savedTheme) {
-    updateTheme(savedTheme === 'dark');
-} else {
-    updateTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
-}
+updateTheme(root.classList.contains('dark-theme'));
 
 // Change the UI theme if system theme changed
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
@@ -25,9 +20,9 @@ function updateTheme(isDark){
 
 function animateIcon() {
     themeIcon.classList.add('theme-animate');
-    setTimeout(() => {
-        themeIcon.classList.remove('theme-animate');
-    }, anim_duration); 
+    setTimeout(
+        () => themeIcon.classList.remove('theme-animate'), anim_duration
+    ); 
 }
 
 themeToggle.addEventListener('click', () => {
@@ -39,8 +34,7 @@ themeToggle.addEventListener('click', () => {
     }, anim_duration/2);
 });
 
-
-// Exit dir using backspace
+// Go back(exit dir) using backspace
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Backspace') {
         const target = event.target;
@@ -53,3 +47,15 @@ document.addEventListener('keydown', function(event) {
         }
     }
 });
+
+// Handle UI for empty directories
+const tbody = document.querySelector('.table-wrapper table tbody');
+const emptyState = document.getElementById('empty-dir');
+const parent_dir = document.getElementById('parent-dir') !== null ? 1 : 0;
+
+const totalDir = tbody.querySelectorAll('.table-wrapper table tbody tr').length
+
+// Check if no dir ()
+if (totalDir <= parent_dir) {
+    emptyState.hidden = false;
+}
