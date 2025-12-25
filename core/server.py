@@ -14,17 +14,16 @@ def init_server():
     Note: Run this only after -> state.init_server_state()
     """
     if not ServerState.is_initialized:
-        logger.print_error("Can't run init_server before init_server_state")
+        raise ValueError("Can't run init_server before init_server_state")
 
     port = ServerState.port
     try:
         ServerState.server = http_server.ThreadingHTTPServer(("", port), FileHandler)
     except OSError:
-        logger.print_error(
+        raise RuntimeError(
             f"Server: Failed to bind to port[{port}], Please try again."
         )
-        exit(1)
-
+    
 def shutdown_server(msg="Shutdown the Server"):
     if ServerState.server:
         try:

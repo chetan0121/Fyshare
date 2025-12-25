@@ -72,7 +72,6 @@ class ResponseHandler:
         - content: The content to send (Optional if you gives file_path)
         - file_path: Path to file to stream. Used only when content is None.
         - chunk_size: Size of each write to handler.wfile (bytes). Default 32 KiB.
-        - encoding: Encoding used when content is str (default utf-8).
         """
         if chunk_size <= 0:
             raise ValueError("chunk_size must be a positive integer")

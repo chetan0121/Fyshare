@@ -5,15 +5,14 @@ import os
 from pathlib import Path
 from core import server, credentials
 from core import load_config, backup_config
-from core import SessionManager
 from core.state import FileState, ServerState, StateError
 from core.utils import logger, helper
 
 def main() -> None:
-    # Set true, if run is from github CI
+    # True if run is from github CI
     FileState.ci_mod = os.getenv("FYSHARE_CI", "0") == "1"
 
-    # Get current folder as path
+    # Get current folder path
     FileState.base_dir = Path(__file__).parent
     this_dir = str(FileState.base_dir)
 
@@ -30,7 +29,7 @@ def main() -> None:
             return
         FileState.CONFIG = load_config(FileState.config_path)
     
-    # Setup directories (root, templates, static)
+    # Setup root, templates and static
     try:
         FileState.set_root_path()
         FileState.set_templates(f"{this_dir}/templates")
@@ -43,9 +42,12 @@ def main() -> None:
         return
 
     # Initialize core components for server
-    ServerState.session_manager = SessionManager()
     ServerState.init_server_state()
-    server.init_server()
+    try:
+        server.init_server()
+    except (ValueError, RuntimeError) as e:
+        logger.print_error(str(e))  
+        return  
 
     # First-time startup banner
     startup_url = f"http://{ServerState.local_ip}:{ServerState.port}"
@@ -58,7 +60,7 @@ def main() -> None:
     # Generate and print credentials
     credentials.generate_credentials("New server started")
 
-    # Start the server
+    # Start the server loop
     try:
         server.run_server()
     except KeyboardInterrupt:

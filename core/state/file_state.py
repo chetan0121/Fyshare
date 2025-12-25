@@ -5,8 +5,8 @@ from typing import Union
 class StateError(Exception): pass
 
 class FileState:
-    # === Global ===
-    CONFIG: dict 
+    # Constants
+    CONFIG: dict
     ROOT_DIR: Path
     STATIC_DIR: Path
 

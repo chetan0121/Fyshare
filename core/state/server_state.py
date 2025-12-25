@@ -46,6 +46,9 @@ class ServerState:
         # Threading lock
         cls.credentials_lock = threading.Lock()
 
+        # Create instance of SessionManager class
+        cls.session_manager = SessionManager()
+
         # Get local ip
         cls.local_ip = get_local_ip()
 

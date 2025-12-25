@@ -159,7 +159,6 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             self.send_error(400, "Error decoding your request")    
             return
 
-        # Safely type conversion
         try:
             submitted_username = str(params.get('username', [''])[0])
             submitted_otp = str(params.get('otp', [''])[0])

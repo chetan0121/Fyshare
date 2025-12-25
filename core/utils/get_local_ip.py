@@ -4,7 +4,20 @@ import re
 import platform
 from typing import Optional
 
-class IPManager:
+def get_local_ip() -> str:
+    """Get local IP address"""
+    ip = get_local_ip_socket()
+
+    if not ip:
+        system = platform.system().lower()
+        if system == "linux" or system == "darwin":
+            ip = get_local_ip_unix()
+    
+    if ip:
+        return ip
+    return "127.0.0.1"
+
+class _IPManager:
     def __init__(self, priority_prefixes):
         self.prior_ip = ""
         self.max_points = 0
@@ -20,19 +33,6 @@ class IPManager:
         if score >= self.max_points:
             self.prior_ip   = new_ip
             self.max_points = score
-
-def get_local_ip() -> str:
-    """Get local IP address"""
-    ip = get_local_ip_socket()
-
-    if not ip:
-        system = platform.system().lower()
-        if system == "linux" or system == "darwin":
-            ip = get_local_ip_unix()
-    
-    if ip:
-        return ip
-    return "127.0.0.1"
     
 def get_local_ip_socket() -> str:
     """Get IP using common socket/UDP method"""
@@ -77,7 +77,7 @@ def _parse_ip_output(output: str) -> str:
     priority_prefixes = ("wlan", "wl", "wifi", "ath", "eth", "en")
 
     current_iface: Optional[str] = None
-    ip_manager = IPManager(priority_prefixes)
+    ip_manager = _IPManager(priority_prefixes)
     
     for line in output.split('\n'):
         line = line.strip()
@@ -112,7 +112,7 @@ def _parse_ifconfig_output(output: str) -> str:
     priority_prefixes = ("wlan", "wl", "wifi", "ath", "eth", "en")
 
     current_iface: Optional[str] = None
-    ip_manager = IPManager(priority_prefixes)
+    ip_manager = _IPManager(priority_prefixes)
     
     for line in output.split('\n'):
         line = line.strip()
