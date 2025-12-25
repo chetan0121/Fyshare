@@ -160,7 +160,6 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             return
 
         try:
-            submitted_username = str(params.get('username', [''])[0])
             submitted_otp = str(params.get('otp', [''])[0])
             timeout_seconds = int(params.get('timeout', ['0'])[0])
         except ValueError:
@@ -168,8 +167,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             return
 
         if not self.validate_credentials(
-            submitted_username,
-            submitted_otp, 
+            submitted_otp,
             timeout_seconds
         ):
             HTMLHandler.send_login_page(
@@ -185,9 +183,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             )
             return
         
-        if submitted_username == ServerState.username \
-            and submitted_otp == ServerState.otp:
-
+        if submitted_otp == ServerState.otp:
             session_token = credentials.generate_session_token()
             session_manager.add_session(
                 session_token, 
