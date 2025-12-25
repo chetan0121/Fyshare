@@ -13,7 +13,6 @@ class ServerState:
 
     # Credentials
     otp: str
-    username: str
     credentials_lock: threading.Lock
 
     # Manager
