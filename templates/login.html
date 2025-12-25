@@ -4,14 +4,23 @@
   <meta charset="utf-8">
   <title>Fyshare Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="../static/login.css">
+  <script src="/static/theme_init.js"></script>
+  <link rel="stylesheet" href="/static/login.css">
 </head>
 <body>
   <div class="login-container">
-    <h2>Secure Login</h2>
+    <h2>Session Login</h2>
     <form method="POST">
-      <input type="text" name="username" placeholder="Username" required autofocus>
-      <input type="text" name="otp" placeholder="OTP Code" inputmode="numeric" required>
+      <input
+        type="text"
+        id="otp"
+        name="otp"
+        placeholder="OTP Code"
+        inputmode="numeric"
+        maxlength="6"
+        autofocus
+        required
+      >
       <select name="timeout" required>
         <option value="" disabled selected>Select Session Duration</option>
         {{options}}
