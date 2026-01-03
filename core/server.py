@@ -36,7 +36,7 @@ def shutdown_server(msg="Shutdown the Server"):
 
     # Print and log the msg
     logger.print_info(f"- {msg}", lvl_tag=False, prefix="\n\n")
-    logger.log_info(msg)
+    logger.log_info(msg, end=f"\n{'='*100}")
 
 def run_server():
     # Make Alias of server
