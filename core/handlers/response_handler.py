@@ -6,17 +6,12 @@ from ..utils import logger
 
 class ResponseHandler:
     """Centralized response management"""
-
-    @staticmethod
-    def get_security_headers() -> list[tuple[str, str]]:
-        headers = [
-            ("X-Frame-Options", "DENY"),
-            ("X-Content-Type-Options", "nosniff"),
-            ("Content-Security-Policy", "default-src 'self';"),
-            ("Referrer-Policy", "no-referrer"),
-        ]
-
-        return headers
+    security_headers = [
+        ("X-Frame-Options", "DENY"),
+        ("X-Content-Type-Options", "nosniff"),
+        ("Content-Security-Policy", "default-src 'self';"),
+        ("Referrer-Policy", "no-referrer"),
+    ]
 
     @staticmethod
     def send_extra_headers(
@@ -28,7 +23,7 @@ class ResponseHandler:
         handler.send_response(status, msg)
 
         # Send security headers
-        for key, val in ResponseHandler.get_security_headers():
+        for key, val in ResponseHandler.security_headers:
             handler.send_header(key, val)
 
         # Send extra headers from param
@@ -86,7 +81,7 @@ class ResponseHandler:
         if content:
             if is_path:
                 logger.emit_warning(
-                    "during response handling: got both content and file path",
+                    "During response handling: got both content and file path",
                     "Using content by default"
                 )
                 is_path = False
