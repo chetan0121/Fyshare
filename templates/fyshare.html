@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>FyShare</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <script src="/static/main_script.js" defer></script>
+    <script src="/static/theme_init.js"></script>
     <link rel="stylesheet" href="/static/fyshare.css">
 </head>
 <body>
@@ -32,11 +32,18 @@
                         <th id="th-action">Actions</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     {{table_rows}}
                 </tbody>
             </table>
         </div>
+        
+        <div id="empty-dir" hidden>
+            📂 This directory is empty
+        </div>
     </div>
+
+    <script src="/static/main_script.js"></script>
 </body>
 </html>

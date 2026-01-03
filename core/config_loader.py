@@ -37,9 +37,9 @@ def normalize_config(config: dict) -> dict:
             "cleanup_timeout_m": int(config["cleanup_timeout_minutes"])
         }
     except ValueError as v:
-        raise ConfigError(f"invalid value type in config: {str(v)}")
+        raise ConfigError(f"Invalid value type in config: {str(v)}")
     except KeyError as k:
-        raise ConfigError(f"missing required key: {str(k)}")
+        raise ConfigError(f"Missing required key: {str(k)}")
 
     return CONFIG
 

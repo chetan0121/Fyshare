@@ -7,7 +7,10 @@ class UtilityError(Exception): pass
 
 # Refine path
 def refine_path(path: str, do_resolve=True):
-    path_str = str(path).strip()
+    if path is None:
+        raise UtilityError("Path cannot be None")
+
+    path_str = str(path).strip().strip('"\'')
     if not path_str:
         raise UtilityError("Path cannot be empty")
 

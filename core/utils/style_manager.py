@@ -13,12 +13,14 @@ class Style:
     ESC = "\033["
     RESET = f"{ESC}0m"
 
+    @staticmethod
     def _to_escape(codes: list[str]):
         """Convert Numbers to ANSI escape code if valid"""
         if not codes:
             return ""
         return f"{Style.ESC}{';'.join(str(c) for c in codes)}m"
     
+    @staticmethod
     def _resolve(codes: Union[list, tuple, set]) -> list:
         """
         Handle Code list and resolve custom codes
@@ -71,10 +73,12 @@ class Style:
 
         return normal_codes
     
+    @staticmethod
     def strip(text: str) -> str:
         """Remove all ANSI escape codes from text."""
         return re.sub(r"\033\[[0-9;]*m", "", text)
     
+    @staticmethod
     def styled(text: str, *styles) -> str:
         """
         Return Styled Text wrapped with ANSI escape codes
@@ -95,6 +99,7 @@ class Style:
 
         return f"{escape_seq}{text}{Style.RESET}"
     
+    @staticmethod
     def print_style(txt="", *codes, prefix="", end="\n"):
         """
         Prints styled text to the console using ANSI escape codes.

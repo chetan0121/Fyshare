@@ -6,17 +6,12 @@ from ..utils import logger
 
 class ResponseHandler:
     """Centralized response management"""
-
-    @staticmethod
-    def get_security_headers() -> list[tuple[str, str]]:
-        headers = [
-            ("X-Frame-Options", "DENY"),
-            ("X-Content-Type-Options", "nosniff"),
-            ("Content-Security-Policy", "default-src 'self';"),
-            ("Referrer-Policy", "no-referrer"),
-        ]
-
-        return headers
+    security_headers = [
+        ("X-Frame-Options", "DENY"),
+        ("X-Content-Type-Options", "nosniff"),
+        ("Content-Security-Policy", "default-src 'self';"),
+        ("Referrer-Policy", "no-referrer"),
+    ]
 
     @staticmethod
     def send_extra_headers(
@@ -28,7 +23,7 @@ class ResponseHandler:
         handler.send_response(status, msg)
 
         # Send security headers
-        for key, val in ResponseHandler.get_security_headers():
+        for key, val in ResponseHandler.security_headers:
             handler.send_header(key, val)
 
         # Send extra headers from param
@@ -72,7 +67,6 @@ class ResponseHandler:
         - content: The content to send (Optional if you gives file_path)
         - file_path: Path to file to stream. Used only when content is None.
         - chunk_size: Size of each write to handler.wfile (bytes). Default 32 KiB.
-        - encoding: Encoding used when content is str (default utf-8).
         """
         if chunk_size <= 0:
             raise ValueError("chunk_size must be a positive integer")
@@ -87,7 +81,7 @@ class ResponseHandler:
         if content:
             if is_path:
                 logger.emit_warning(
-                    "during response handling: got both content and file path",
+                    "During response handling: got both content and file path",
                     "Using content by default"
                 )
                 is_path = False

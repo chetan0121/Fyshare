@@ -33,16 +33,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      # Install dependencies
-      - name: Install dependencies (if exists)
-        run: |
-          if [ -f requirements.txt ]; then
-            echo "Installing from requirements.txt"
-            pip install -r requirements.txt
-          else
-            echo "No requirements.txt found, skipping installation"
-          fi
-
       # Debug info
       - name: Display Python and installed packages
         run: |

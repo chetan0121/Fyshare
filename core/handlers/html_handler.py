@@ -14,7 +14,7 @@ class HTMLHandler():
     )
 
     parent_dir_html = """
-        <tr>
+        <tr id="parent-dir">
             <td>
                 <a href="../">
                     <span class="icon">📁</span>

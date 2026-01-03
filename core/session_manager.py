@@ -64,12 +64,18 @@ class SessionManager:
 
                 if data['count'] >= FileState.CONFIG['max_total_attempts']:
                     data['blocked_until'] = current_time + block_time * 60
-                    logger.emit_warning(f"Blocked User[{ip}] for {block_time} minutes due to excessive attempts")
+                    logger.emit_warning(
+                        f"Blocked User for {block_time} minutes due to excessive attempts",
+                        f"IP: {ip}"
+                    )
                     return
 
                 if data['count'] % FileState.CONFIG['max_attempts'] == 0:
                     data['cool_until'] = current_time + cooldown_s
-                    logger.emit_info(f"User[{ip}] is in cool-down for {cooldown_s} seconds due to excessive attempts")
+                    logger.emit_info(
+                        f"User is in cool-down for {cooldown_s} seconds due to excessive attempts",
+                        f"IP: {ip}"
+                    )
                     return
 
     def is_inCool(self, ip, current_time) -> bool:
@@ -89,7 +95,7 @@ class SessionManager:
             for ip, data in list(self.attempts.items()):
                 # Clean expired blocks
                 if 'blocked_until' in data and current_time >= data['blocked_until']:
-                    logger.emit_info(f"Unblocked User[{ip}]")
+                    logger.emit_info("Unblocked User", f"IP: {ip}")
                     expired_ips.append(ip)
 
                 elif 'last_time' in data and current_time - data['last_time'] > cleanup_timeout_s:

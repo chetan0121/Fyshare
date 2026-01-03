@@ -5,8 +5,8 @@ from typing import Union
 class StateError(Exception): pass
 
 class FileState:
-    # === Global ===
-    CONFIG: dict 
+    # Constants
+    CONFIG: dict
     ROOT_DIR: Path
     STATIC_DIR: Path
 
@@ -35,7 +35,7 @@ class FileState:
     def set_root_path() -> None:
         """Setup root path - Run this only after Config loaded"""
         if not FileState.CONFIG:
-            raise StateError("Refined CONFIG not found")
+            raise StateError("CONFIG not found")
         
         if FileState.ci_mod:
             FileState.ROOT_DIR = FileState.base_dir
@@ -79,8 +79,8 @@ class FileState:
         
         # Save new path to config as default
         if opt == 2:
-            def key_update(j):
-                j["root_directory"] = str(path)
+            def key_update(d):
+                d["root_directory"] = str(path)
 
             helper.update_json(
                 FileState.config_path,
@@ -93,7 +93,7 @@ class FileState:
     @staticmethod
     def set_templates(path: Union[str, Path]) -> None:
         """Load templates (htmls)"""
-        path = helper.refine_path(path, False)
+        path = helper.refine_path(path)
         helper.is_valid_dir(path)
         
         try:
@@ -118,6 +118,6 @@ class FileState:
     @staticmethod
     def set_static_dir(path: Union[str, Path]) -> None:
         """Set and validate static directory path before using it"""
-        path = helper.refine_path(path, False)
+        path = helper.refine_path(path)
         helper.is_valid_dir(path)
         FileState.STATIC_DIR = path   
