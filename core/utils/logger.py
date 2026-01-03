@@ -104,20 +104,20 @@ def print_info(*msg, sep=" | ", prefix="\n", end="\n\n",
 
 
 # ========= Logging functions =========
-def log_error(*msg, sep=" | ", lvl_tag=True, prefix=""):
+def log_error(*msg, sep=" | ", lvl_tag=True, prefix="", end=""):
     message = __set_level(*msg, sep=sep, level="ERROR", enable=lvl_tag)
 
-    logging.error(message, extra={'prefix': prefix})
+    logging.error(f"{message}{end}", extra={'prefix': prefix})
 
-def log_warning(*msg, sep=" | ", lvl_tag=True, prefix=""):
+def log_warning(*msg, sep=" | ", lvl_tag=True, prefix="", end=""):
     message = __set_level(*msg, sep=sep, level="WARNING", enable=lvl_tag)
 
-    logging.warning(message, extra={'prefix': prefix})
+    logging.warning(f"{message}{end}", extra={'prefix': prefix})
     
-def log_info(*msg, sep=" | ", lvl_tag=True, prefix=""):
+def log_info(*msg, sep=" | ", lvl_tag=True, prefix="", end=""):
     message = __set_level(*msg, sep=sep, level="INFO", enable=lvl_tag)
 
-    logging.info(message, extra={'prefix': prefix})
+    logging.info(f"{message}{end}", extra={'prefix': prefix})
 
 
 # ===== Logging and Printing in one =====

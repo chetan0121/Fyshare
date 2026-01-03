@@ -17,9 +17,11 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         self.config = FileState.CONFIG
         self.root_dir = str(FileState.ROOT_DIR)
+        self.session_manager = ServerState.session_manager
+
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
 
-    def copyfile(self, source, destination, chunk_kb = 64.0):
+    def copyfile(self, source, destination, chunk_kb: float = 64.0):
         """
         copies data from source to destination
         chunk_kb: By default 64 in KB
@@ -27,20 +29,33 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         if chunk_kb <= 0:
             raise ValueError("chunk_size must be a positive integer")
         
+        client_ip = self.client_address[0]
+        file_name = source.name
+        
         # Convert to KB
         chunk_size = int(chunk_kb * 1024)       
         try:
             while (data := source.read(chunk_size)):
                 destination.write(data)
+
+            logger.emit_info(
+                 "User Downloaded file",
+                f"IP: {client_ip}", 
+                f"File: \"{file_name}\""
+            )    
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            logger.emit_info(
+                 "Canceled downloading file",
+                f"IP: {client_ip}", 
+                f"File: \"{file_name}\""
+            )
             pass
 
     def do_GET(self):
-        session_manager = ServerState.session_manager
         client_ip = self.client_address[0]
         current_time = time.monotonic()
 
-        if session_manager.is_blocked(client_ip, current_time):
+        if self.session_manager.is_blocked(client_ip, current_time):
             ResponseHandler.send_blocked_response(
                 self, HTMLHandler.blocked_html_message
             )
@@ -58,11 +73,11 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
 
         if self.path == '/logout':
             session_token = self.get_session_token()
-            session = session_manager.get_session(session_token)
+            session = self.session_manager.get_session(session_token)
             if session_token and session:
                 curr_ip = session['ip']
                 logger.emit_info("User logged-out", f"IP: {curr_ip}")
-                session_manager.remove_session(session_token)
+                self.session_manager.remove_session(session_token)
 
             # Headers
             home_page = ('Location', '/')
@@ -84,9 +99,9 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             if not file_path.exists() or not file_path.is_file():
                 self.send_error(404, "File not found")
                 logger.emit_warning(
-                     "User tried to access invalid static file.",
-                    f"IP: {client_ip}",
-                    f"Path: {file_path}"
+                     "User tried to access invalid static path",
+                    f"IP: {client_ip}" ,
+                    f"Path: {file_path}",
                 )
                 return
 
@@ -99,6 +114,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                 self.send_error(500, f"Internal Server Error")
                 logger.emit_error(
                     f"During static file serve: {str(e)}",
+                    f"IP: {client_ip}",
                     f"File: {file_path}"
                 )
                 return
@@ -118,7 +134,8 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                     self.send_error(500, f"Error: Something went wrong.")
                     logger.emit_error(
                         f"Serving html file: {str(e)}",
-                        f"HTML FILE: {file_path}"
+                        f"IP: {client_ip}",
+                        f"File: {file_path}"
                     )
             else:
                 self.send_error(404, "File not found")
@@ -135,18 +152,17 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
     def do_POST(self):
         client_ip = self.client_address[0]
         current_time = time.monotonic()
-        session_manager = ServerState.session_manager
 
-        if session_manager.is_blocked(client_ip, current_time):
+        if self.session_manager.is_blocked(client_ip, current_time):
             ResponseHandler.send_blocked_response(
                 self, 
                 HTMLHandler.blocked_html_message
             )
             return
         
-        if session_manager.is_inCool(client_ip, current_time):
+        if self.session_manager.is_inCool(client_ip, current_time):
             HTMLHandler.send_login_page(
-                self, message="Too many attempts. Try again later." 
+                self, message="Too many attempts. Try again later."
             )
             return
         
@@ -172,11 +188,11 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         ):
             HTMLHandler.send_login_page(
                 self, 
-                message="Invalid input! Please check your username and otp format."
+                message="Invalid input! Please check your otp format."
             )
             return
 
-        if len(session_manager.sessions) >= self.config['max_users']:
+        if len(self.session_manager.sessions) >= self.config['max_users']:
             HTMLHandler.send_login_page(
                 self, 
                 message="Server busy—too many users. Try again later."
@@ -185,7 +201,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         
         if submitted_otp == ServerState.otp:
             session_token = credentials.generate_session_token()
-            session_manager.add_session(
+            self.session_manager.add_session(
                 session_token, 
                 client_ip, 
                 current_time + timeout_seconds
@@ -207,7 +223,9 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         else:
             security_shutdown_threshold = self.config['max_users']*100
             credential_rotation_threshold = self.config['max_users']*10
-            session_manager.update_attempts(client_ip, current_time)
+            self.session_manager.update_attempts(client_ip, current_time)
+
+            logger.emit_info("User tried to login with invalid otp", f"IP: {client_ip}")
 
             with ServerState.credentials_lock:
                 ServerState.global_attempts += 1
@@ -222,7 +240,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             if attempts % credential_rotation_threshold == 0:
                 credentials.generate_credentials("Too many failed attempts on server")
 
-            HTMLHandler.send_login_page(self, message="Invalid username or otp.")
+            HTMLHandler.send_login_page(self, message="Invalid otp.")
 
     def list_directory(self, path: str):
         try:
