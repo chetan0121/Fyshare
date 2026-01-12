@@ -16,9 +16,10 @@ def init_server():
     if not ServerState.is_initialized:
         raise ValueError("Can't run init_server before init_server_state")
 
+    ip = ServerState.local_ip
     port = ServerState.port
     try:
-        ServerState.server = http_server.ThreadingHTTPServer(("", port), FileHandler)
+        ServerState.server = http_server.ThreadingHTTPServer((ip, port), FileHandler)
     except OSError:
         raise RuntimeError(
             f"Server: Failed to bind to port[{port}], Please try again."
