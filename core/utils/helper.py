@@ -6,7 +6,7 @@ from pathlib import Path
 class UtilityError(Exception): pass
 
 # Refine path
-def refine_path(path: str | Path, resolve=True):
+def refine_path(path: Union[str, Path], resolve=True):
     if path is None:
         raise UtilityError("Path cannot be None")
 
@@ -22,7 +22,7 @@ def refine_path(path: str | Path, resolve=True):
     return final_path    
 
 # Is Integer
-def try_parse_int(txt: str) -> int | None:
+def try_parse_int(txt: str) -> Union[int, None]:
     """
     Attempts to parse a string as an integer.
     
