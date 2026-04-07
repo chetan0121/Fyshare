@@ -6,7 +6,7 @@ from pathlib import Path
 class UtilityError(Exception): pass
 
 # Refine path
-def refine_path(path: str, do_resolve=True):
+def refine_path(path: str | Path, resolve=True):
     if path is None:
         raise UtilityError("Path cannot be None")
 
@@ -16,10 +16,26 @@ def refine_path(path: str, do_resolve=True):
 
     path_str = os.path.expandvars(path_str)
     final_path = Path(path_str).expanduser()
-    if do_resolve:
+    if resolve:
         final_path = final_path.resolve()
 
     return final_path    
+
+# Is Integer
+def try_parse_int(txt: str) -> int | None:
+    """
+    Attempts to parse a string as an integer.
+    
+    :param txt: The string to parse.
+    
+    Returns:
+        The integer value if parsing succeeds, otherwise None.
+    """
+    try:
+        num = int(txt)
+        return num
+    except (TypeError, ValueError):
+        return None
 
 # Check if its valid directory
 def is_valid_dir(path: Union[str, Path]):
