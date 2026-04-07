@@ -16,20 +16,20 @@ def _print_credentials(message: str):
     separator_line = str('-'*50)
     
     # Print credentials and stats
-    Style.print_style(f"\n\n{message}", Color.YELLOW, TextStyle.BRIGHT)
-    Style.print_style(separator_line, TextStyle.BOLD)
+    Style.print(f"\n\n{message}", Color.YELLOW, TextStyle.BRIGHT)
+    Style.print(separator_line, TextStyle.BOLD)
 
-    Style.print_style(f"Serving directory : {root_dir}", TextStyle.BOLD)
-    Style.print_style(f"Open in browser   : {login_link}", TextStyle.BOLD)
+    Style.print(f"Serving directory : {root_dir}", TextStyle.BOLD)
+    Style.print(f"Open in browser   : {login_link}", TextStyle.BOLD)
 
-    Style.print_style(f"\nLogin Details:", 36, TextStyle.BOLD)
-    Style.print_style(f"   • OTP       : {ServerState.otp}")
+    Style.print(f"\nLogin Details:", 36, TextStyle.BOLD)
+    Style.print(f"   • OTP       : {ServerState.otp}")
 
-    Style.print_style(f"\nSettings:", 36, TextStyle.BOLD)
-    Style.print_style(f"   • Max users : {FileState.CONFIG['max_users']} Allowed")
-    Style.print_style(f"   • Time Out  : {FileState.CONFIG['idle_timeout_m']} minutes")
+    Style.print(f"\nSettings:", 36, TextStyle.BOLD)
+    Style.print(f"   • Max users : {FileState.CONFIG['max_users']} Allowed")
+    Style.print(f"   • Time Out  : {FileState.CONFIG['idle_timeout_m']} minutes")
     
-    Style.print_style(f"{separator_line}\n", TextStyle.BOLD)
+    Style.print(f"{separator_line}\n", TextStyle.BOLD)
 
 def _log_credentials(msg: str):
     reason = msg if msg else 'Not specified'

@@ -57,7 +57,7 @@ def __print_level(
     if is_bold:
         codes.append(TextStyle.BOLD)
 
-    Style.print_style(txt, *codes, prefix=prefix, end=end)
+    Style.print(txt, *codes, prefix=prefix, end=end)
 
 # ========= Printer functions =========
 def print_error(*msg, sep=" | ", prefix="\n", end="\n\n",
