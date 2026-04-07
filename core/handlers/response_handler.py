@@ -49,14 +49,14 @@ class ResponseHandler:
         message: Optional[str] = None,
         content_type: str = "text/plain",
         content: Optional[Union[str, bytes]] = None,
-        file_path: Optional[str] = None,
-        chunk_size: int = 32.0
+        file_path: Optional[Union[str, Path]] = None,
+        chunk_size: float = 32.0
     ) -> None:
         """
         Send an HTTP response (headers + body) from either an in-memory content
         (str or bytes) or a file on disk.
         
-        <h3>Parameters</h3>
+        ### Parameters
         
         - handler: HTTP request handler instance (must support send_response,
           send_header, end_headers and have a writable .wfile).
@@ -78,6 +78,7 @@ class ResponseHandler:
         path = Path(file_path) if file_path else None
         is_path = path.is_file() if path else False
         
+        # Handle Content and File Path
         if content:
             if is_path:
                 logger.emit_warning(

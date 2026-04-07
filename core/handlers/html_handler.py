@@ -155,7 +155,7 @@ class HTMLHandler():
         return f"{a}/{b}"
 
     @staticmethod
-    def format_size(size_bytes: int):
+    def format_size(size_bytes: float):
         try:
             for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
                 if size_bytes < 1024.0:
