@@ -3,8 +3,8 @@ from http.server import SimpleHTTPRequestHandler as ReqHandler
 from ..utils import helper
 from ..state import ServerState, FileState
 
-class SecurityMixin():
-    def get_session_token(self: ReqHandler):
+class SecurityMixin(ReqHandler):
+    def get_session_token(self):
         cookies = self.headers.get('Cookie', '')
         for cookie in cookies.split(';'):
             cookie = cookie.strip()
@@ -12,7 +12,8 @@ class SecurityMixin():
                 return cookie.split('=', 1)[1].strip()
         return None
 
-    def validate_credentials(self: ReqHandler, otp, timeout):
+    @staticmethod
+    def validate_credentials(otp, timeout):
         # Validate otp: exactly 6 digits
         is_valid_otp = bool(re.fullmatch(r'\d{6}', otp))
 
@@ -38,7 +39,7 @@ class SecurityMixin():
         
         return True
 
-    def translate_path(self: ReqHandler, path: str):
+    def translate_path(self, path: str):
         path = super().translate_path(str(path))
         real_path = str(helper.refine_path(path))
         if not real_path.startswith(str(FileState.ROOT_DIR)):
