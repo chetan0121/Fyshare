@@ -21,10 +21,10 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
 
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
 
-    def copyfile(self, source, destination, chunk_kb: float = 64.0):
+    def copyfile(self, source, outputfile, chunk_kb: float = 64.0):
         """
-        copies data from source to destination
-        chunk_kb: By default 64 in KB
+        copies data from source to outputfile
+        chunk_kb: By default 64KB
         """
         if chunk_kb <= 0:
             raise ValueError("chunk_size must be a positive integer")
@@ -36,7 +36,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         chunk_size = int(chunk_kb * 1024)       
         try:
             while (data := source.read(chunk_size)):
-                destination.write(data)
+                outputfile.write(data)
 
             logger.emit_info(
                  "User Downloaded file",
@@ -242,7 +242,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
 
             HTMLHandler.send_login_page(self, message="Invalid otp.")
 
-    def list_directory(self, path: str):
+    def list_dir(self, path: str):
         try:
             with os.scandir(path) as entries:
                 file_list = list(entries)
@@ -282,18 +282,19 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 return None
             
-            return self.list_directory(path)
+            return self.list_dir(path)
             
         if path.endswith("/"):
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return None
         
+        f = None
         try:
             f = open(path, 'rb')
             fs = os.fstat(f.fileno())
         except OSError:
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-            f.close()
+            f.close() if f else None
             return None
 
         self.send_response(HTTPStatus.OK)
