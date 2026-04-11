@@ -16,10 +16,18 @@ class ResponseHandler:
     @staticmethod
     def send_extra_headers(
         handler: ReqHandler,
-        status=200, 
+        status: int = 200, 
         msg: Optional[str] = None,
         headers: Optional[Sequence[tuple[str, str]]] = None,
     ) -> None:
+        """Send HTTP response headers with security headers included.
+        
+        Args:
+            handler: HTTP request handler.
+            status: HTTP status code (default 200).
+            msg: Optional reason phrase for status line.
+            headers: Optional sequence of (key, value) tuples for additional headers.
+        """
         handler.send_response(status, msg)
 
         # Send security headers
@@ -35,6 +43,12 @@ class ResponseHandler:
 
     @staticmethod
     def send_blocked_response(handler: ReqHandler, content: str) -> None:
+        """Send 403 Forbidden response with provided HTML content.
+        
+        Args:
+            handler: HTTP request handler.
+            content: HTML content to send as response body.
+        """
         ResponseHandler.send_http_response(
             handler,
             403, "Access Denied",

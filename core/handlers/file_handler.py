@@ -13,18 +13,26 @@ from .security_mixin import SecurityMixin
 from ..state import FileState, ServerState
 
 class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
+    """HTTP request handler for file serving with authentication and security."""
 
     def __init__(self, *args, **kwargs):
+        """Initialize FileHandler with root directory and session manager."""
         self.config = FileState.CONFIG
         self.root_dir = str(FileState.ROOT_DIR)
         self.session_manager = ServerState.session_manager
 
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
 
-    def copyfile(self, source, outputfile, chunk_kb: float = 64.0):
-        """
-        copies data from source to outputfile
-        chunk_kb: By default 64KB
+    def copyfile(self, source, outputfile, chunk_kb: float = 64.0) -> None:
+        """Copy file data in chunks while handling connection errors gracefully.
+        
+        Args:
+            source: Open file object to read from.
+            outputfile: Open file-like object to write to.
+            chunk_kb: Chunk size in kilobytes (default 64 KB).
+            
+        Raises:
+            ValueError: If chunk_kb is not positive.
         """
         if chunk_kb <= 0:
             raise ValueError("chunk_size must be a positive integer")
@@ -49,9 +57,9 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                 f"IP: {client_ip}", 
                 f"File: \"{file_name}\""
             )
-            pass
 
-    def do_GET(self):
+    def do_GET(self) -> None:
+        """Handle GET requests with authentication, rate limiting, and file serving."""
         client_ip = self.client_address[0]
         current_time = time.monotonic()
 
@@ -149,7 +157,8 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             finally:
                 file_obj.close()
 
-    def do_POST(self):
+    def do_POST(self) -> None:
+        """Handle POST requests for login with OTP validation and session management."""
         client_ip = self.client_address[0]
         current_time = time.monotonic()
 
@@ -242,7 +251,15 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
 
             HTMLHandler.send_login_page(self, message="Invalid otp.")
 
-    def list_dir(self, path: str):
+    def list_dir(self, path: str) -> None:
+        """Generate and send directory listing as HTML table.
+        
+        Args:
+            path: Filesystem path to list.
+            
+        Returns:
+            None if there was an error, otherwise void function.
+        """
         try:
             with os.scandir(path) as entries:
                 file_list = list(entries)
@@ -272,6 +289,11 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             logger.emit_error(f"Generating response: {str(e)}")   
 
     def send_head(self):
+        """Handle HEAD requests and send file/directory with proper headers.
+        
+        Returns:
+            Open file object if file should be sent, None if handled as directory redirect.
+        """
         path = self.translate_path(self.path)
 
         if os.path.isdir(path):
@@ -294,7 +316,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             fs = os.fstat(f.fileno())
         except OSError:
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-            f.close() if f else None
+            if f: f.close()
             return None
 
         self.send_response(HTTPStatus.OK)
