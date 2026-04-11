@@ -8,6 +8,8 @@ from ..state import FileState
 from ..utils import logger
 
 class HTMLHandler():
+    """Handles HTML generation and rendering for file browser interface."""
+    
     blocked_html_message = (
         "<h1>403 Forbidden</h1>"
         "<p>Blocked due to excessive attempts. Try again later.</p>"
@@ -46,14 +48,23 @@ class HTMLHandler():
     DEFAULT_FILE_ICON = "📄"
 
     @staticmethod
-    def generate_html(file_list, displaypath):
+    def generate_html(file_list: list, displaypath: str) -> str:
+        """Generate HTML directory listing from file list.
+        
+        Args:
+            file_list: List of files/directories to display.
+            displaypath: Relative display path for breadcrumbs.
+            
+        Returns:
+            Complete HTML page with file listing.
+        """
         template = FileState.FYSHARE_HTML
         breadcrumbs = HTMLHandler.generate_breadcrumbs(displaypath)
 
         # Table rows
         rows = []
 
-        # Add parent directory entry when not at root
+        # Add parent directory at first when not at root
         if displaypath != '.':
             rows.append(HTMLHandler.parent_dir_html) 
             
@@ -63,17 +74,24 @@ class HTMLHandler():
             # Skip hidden files
             if name.startswith('.'):
                 continue
+            
+            # Dont append invalid symlinks
+            if entry.is_symlink():
+                try:
+                    entry.resolve(strict=True)
+                except FileNotFoundError:
+                    continue
 
             size = '-'
             btn = ""
 
             if not entry.is_dir():
                 size = HTMLHandler.format_size(entry.stat().st_size)
-                btn = HTMLHandler.get_action_button(name)
+                btn = HTMLHandler._get_action_button(name)
 
             icon = HTMLHandler.get_file_icon(entry)
             rows.append(
-                HTMLHandler.add_table_row(
+                HTMLHandler._add_table_row(
                     name, icon, size, btn
                 )
             )
@@ -84,7 +102,15 @@ class HTMLHandler():
         )
     
     @staticmethod
-    def generate_breadcrumbs(path: str):
+    def generate_breadcrumbs(path: str) -> str:
+        """Generate HTML breadcrumb navigation from filesystem path.
+        
+        Args:
+            path: Filesystem path to convert to breadcrumbs.
+            
+        Returns:
+            HTML string with clickable breadcrumb links.
+        """
         refined_path = str(path).replace('\\', '/').strip('/. ')
         parts = refined_path.split('/')
         breadcrumbs = ['<a href="/">🏠 Home</a>']
@@ -96,14 +122,22 @@ class HTMLHandler():
 
             current_path = HTMLHandler.join_posix(current_path, part)
             breadcrumbs.append(
-                f'<span class="breadcrumb-sep">/</span>'
                 f'<a href="/{quote(current_path)}">{escape(part)}</a>'
             )
 
-        return ''.join(breadcrumbs)
+        sep = '<span class="breadcrumb-sep">/</span>'
+        return sep.join(breadcrumbs)
     
     @staticmethod
     def get_file_icon(file_name: Union[str, Path]) -> str:
+        """Get emoji icon based on file type or if directory.
+        
+        Args:
+            file_name: File or directory path.
+            
+        Returns:
+            Emoji string representing the file type.
+        """
         path = Path(file_name)
 
         # Directory check
@@ -118,9 +152,76 @@ class HTMLHandler():
             path.suffix.lower(),
             HTMLHandler.DEFAULT_FILE_ICON
         )
+        
+    @staticmethod
+    def join_posix(a: str, b: str) -> str:
+        """Join two path segments using forward slash (POSIX style).
+        
+        Args:
+            a: First path segment.
+            b: Second path segment.
+            
+        Returns:
+            Combined path with proper separator.
+        """
+        a = (a or "").rstrip('/')
+        b = (b or "").lstrip('/')
+        if not a:
+            return b
+        return f"{a}/{b}"
+
+    @staticmethod
+    def format_size(size_bytes: float) -> str:
+        """Format file size in human-readable format (B, KB, MB, etc.).
+        
+        Args:
+            size_bytes: Size in bytes.
+            
+        Returns:
+            Formatted size string, or 'N/A' if error occurs.
+        """
+        try:
+            for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+                if size_bytes < 1024.0:
+                    return f"{size_bytes:.1f} {unit}"
+                size_bytes /= 1024.0
+            return f"{size_bytes:.1f} PB"
+        except (TypeError, OSError):
+            return "N/A"
+
+    @staticmethod
+    def send_login_page(handler: ReqHandler, message: str | None = None) -> None:
+        """Send login page HTML to client.
+        
+        Args:
+            handler: HTTP request handler.
+            message: Optional message to display on login page.
+        """
+        try:
+            html = FileState.LOGIN_HTML
+            html = html.replace('{{message}}', message or '')
+            ResponseHandler.send_http_response(
+                handler,
+                content_type='text/html',
+                content=html
+            )
+        except Exception as e:
+            handler.send_error(500, f"Error: Something went wrong.")
+            logger.emit_error(f"Rendering login page: {str(e)}")
     
     @staticmethod
-    def add_table_row(file_name, icon, size, action) -> str:
+    def _add_table_row(file_name: str, icon: str, size: str, action: str) -> str:
+        """Generate HTML table row for a single file/directory entry.
+        
+        Args:
+            file_name: Name of the file/directory.
+            icon: Emoji icon to display.
+            size: Formatted file size string.
+            action: HTML for action button (download link).
+            
+        Returns:
+            HTML table row string.
+        """
         link = quote(file_name)
         display_name = escape(file_name)
 
@@ -139,43 +240,18 @@ class HTMLHandler():
         return table_row
 
     @staticmethod
-    def get_action_button(filename: str) -> str:
+    def _get_action_button(filename: str) -> str:
+        """Generate download button HTML for a file.
+        
+        Args:
+            filename: Name of the file to download.
+            
+        Returns:
+            HTML string with download link button.
+        """
         href = quote(filename)
         return (
             f'<a class="download-btn" href="{href}"'
             ' download>⬇️ Download</a>'
         )
 
-    @staticmethod
-    def join_posix(a: str, b: str) -> str:
-        a = (a or "").rstrip('/')
-        b = (b or "").lstrip('/')
-        if not a:
-            return b
-        return f"{a}/{b}"
-
-    @staticmethod
-    def format_size(size_bytes: float):
-        try:
-            for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-                if size_bytes < 1024.0:
-                    return f"{size_bytes:.1f} {unit}"
-                size_bytes /= 1024.0
-            return f"{size_bytes:.1f} PB"
-        except (TypeError, OSError):
-            return "N/A"
-
-    @staticmethod
-    def send_login_page(handler: ReqHandler, message=None):
-        try:
-            html = FileState.LOGIN_HTML
-            html = html.replace('{{message}}', message or '')
-            ResponseHandler.send_http_response(
-                handler,
-                content_type='text/html',
-                content=html
-            )
-        except Exception as e:
-            handler.send_error(500, f"Error: Something went wrong.")
-            logger.emit_error(f"Rendering login page: {str(e)}")    
-         
