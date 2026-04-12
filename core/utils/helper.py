@@ -84,7 +84,7 @@ def get_json(path: Union[Path, str]) -> dict:
     return config
 
 # Update json file with func as provided
-def update_json(path: Union[str, Path], update_func: Callable[[dict]]) -> None:
+def update_json(path: Union[str, Path], update_func: Callable[[dict], None]) -> None:
     """
     Atomically update a JSON file using a callback function.
     Thread-safe and works on Windows.
