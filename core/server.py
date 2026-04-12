@@ -14,7 +14,7 @@ def init_server():
     Note: Run this only after -> state.init_server_state()
     """
     if not ServerState.is_initialized:
-        raise ValueError("Can't run init_server before init_server_state")
+        raise ValueError("Server state is not initialized yet")
 
     ip = ServerState.local_ip
     port = ServerState.port
@@ -26,10 +26,10 @@ def init_server():
         )
     
 def shutdown_server(msg="Shutdown the Server"):
+    ServerState.is_running = False
     if ServerState.server:
         try:
             ServerState.server.server_close()
-            ServerState.is_running = False
             ServerState.server = None
         except Exception as e:
             logger.emit_error(f"During shutdown: {str(e)}")

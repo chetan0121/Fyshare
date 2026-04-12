@@ -2,13 +2,13 @@ import os
 import socket
 import subprocess
 import re
-from typing import Optional
+from typing import Final, Optional
 from . import style_manager as S
 from . import helper
 
 # Global variables
-exclude_prefixes = ("lo", "tun", "tap", "wg", "ppp", "ccmni")
-priority_prefixes = ("wlan", "wl", "wifi", "ath", "eth", "en")
+exclude_prefixes: Final[tuple[str, ...]] = ("lo", "tun", "tap", "wg", "ppp", "ccmni")
+priority_prefixes: Final[tuple[str, ...]] = ("wlan", "wl", "wifi", "ath", "eth", "en")
 
 def is_unix_like()-> bool:
     """
@@ -34,7 +34,7 @@ def get_local_ip_socket() -> str:
             ip = str(s.getsockname()[0])
             if is_hostable_ipv4(ip): 
                 return ip
-    except:
+    except Exception:
         pass
     return ""
 
@@ -51,7 +51,7 @@ def get_local_ip_unix() -> str:
         S.Style.print("\nPermission denied: Unable to run \'ip addr show\' command", S.TextStyle.BOLD, S.Color.YELLOW)
     except KeyboardInterrupt:
         raise
-    except:
+    except Exception:
         pass
     
     # 2. Try 'ifconfig' (Fallback for macOS, Android, legacy linux)
@@ -66,7 +66,7 @@ def get_local_ip_unix() -> str:
         S.Style.print("\nPermission denied: Unable to run \'ifconfig\' command", S.TextStyle.BOLD, S.Color.YELLOW)
     except KeyboardInterrupt:
         raise
-    except:
+    except Exception:
         pass
 
     return ""

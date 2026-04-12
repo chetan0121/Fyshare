@@ -1,28 +1,28 @@
 import json
 import os
-from typing import Union
+from typing import Callable, Optional, Union
 from pathlib import Path
 
 class UtilityError(Exception): pass
 
 # Refine path
-def refine_path(path: Union[str, Path], resolve=True):
+def refine_path(path: Union[str, Path], resolve: bool = True) -> Path:
     if path is None:
         raise UtilityError("Path cannot be None")
 
-    path_str = str(path).strip().strip('"\'')
+    path_str = str(path).strip().strip('"').strip("'")
     if not path_str:
         raise UtilityError("Path cannot be empty")
 
     path_str = os.path.expandvars(path_str)
     final_path = Path(path_str).expanduser()
     if resolve:
-        final_path = final_path.resolve()
+        final_path = final_path.resolve(strict=False)
 
     return final_path    
 
 # Is Integer
-def try_parse_int(txt: str) -> Union[int, None]:
+def try_parse_int(txt: str) -> Optional[int]:
     """
     Attempts to parse a string as an integer.
     
@@ -38,7 +38,7 @@ def try_parse_int(txt: str) -> Union[int, None]:
         return None
 
 # Check if its valid directory
-def is_valid_dir(path: Union[str, Path]):
+def is_valid_dir(path: Union[str, Path]) -> None:
     """
     Validates that the given path is an existing, real directory.
     Returns the Path object if valid (so you can chain calls).
@@ -70,7 +70,7 @@ def is_valid_dir(path: Union[str, Path]):
         raise UtilityError(f"No read permission for directory '{path}'")
 
 # Get Configuration
-def get_json(path: Union[Path, str]):
+def get_json(path: Union[Path, str]) -> dict:
     json_path = Path(path)
     if not json_path.exists():
         raise UtilityError(f"File('{json_path}') not found")
@@ -84,7 +84,7 @@ def get_json(path: Union[Path, str]):
     return config
 
 # Update json file with func as provided
-def update_json(path: Union[str, Path], update_func):
+def update_json(path: Union[str, Path], update_func: Callable[[dict]]) -> None:
     """
     Atomically update a JSON file using a callback function.
     Thread-safe and works on Windows.
@@ -121,7 +121,7 @@ def update_json(path: Union[str, Path], update_func):
                 pass
         raise e
 
-def copy_file(source, destination):
+def copy_file(source: Union[str, Path], destination: Union[str, Path]) -> None:
     """
     Creates a NEW file at 'destination' with:
         - Same content as 'source'

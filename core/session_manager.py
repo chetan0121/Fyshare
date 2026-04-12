@@ -1,8 +1,10 @@
 import time
 import threading
 from typing import Optional
+
 from .utils import logger
 from .state import FileState
+
 
 class SessionManager:
     def __init__(self):
@@ -21,9 +23,14 @@ class SessionManager:
         # Thread lock for every function 
         self.session_lock = threading.Lock()
 
-    def add_session(self, token, ip, expiry) -> None:
+    def try_add_session(self, token, ip, expiry) -> bool:
         with self.session_lock:
+            session_count = len(self.sessions)
+            if session_count >= FileState.CONFIG['max_users']:
+                return False
+
             self.sessions[token] = {'ip': ip, 'expiry': expiry}
+            return True
 
     def remove_session(self, token) -> None:
         with self.session_lock:

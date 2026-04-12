@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from .style_manager import *
+from .style_manager import Color, Style, TextStyle
 from logging.handlers import RotatingFileHandler
 
 def set_logger(file: str) -> None:
@@ -37,7 +37,7 @@ def set_logger(file: str) -> None:
     )
 
 # ===== Utils =====
-def __set_level(*txt, sep: str, level: str, enable: bool):
+def __set_level(*txt: str, sep: str, level: str, enable: bool) -> str:
     msg = sep.join(txt)
     return f"[{level}] {msg}" if enable else msg
 
@@ -48,7 +48,7 @@ def __print_level(
     color: int,
     is_bright: bool,
     is_bold: bool
-):
+) -> None:
     """Private Function to apply limited styles to txt of print_*()"""
     codes = [color]
     if is_bright:
@@ -104,24 +104,24 @@ def print_info(*msg, sep=" | ", prefix="\n", end="\n\n",
 
 
 # ========= Logging functions =========
-def log_error(*msg, sep=" | ", lvl_tag=True, prefix="", end=""):
+def log_error(*msg, sep=" | ", lvl_tag=True, prefix="", end="") -> None:
     message = __set_level(*msg, sep=sep, level="ERROR", enable=lvl_tag)
 
     logging.error(f"{message}{end}", extra={'prefix': prefix})
 
-def log_warning(*msg, sep=" | ", lvl_tag=True, prefix="", end=""):
+def log_warning(*msg, sep=" | ", lvl_tag=True, prefix="", end="") -> None:
     message = __set_level(*msg, sep=sep, level="WARNING", enable=lvl_tag)
 
     logging.warning(f"{message}{end}", extra={'prefix': prefix})
     
-def log_info(*msg, sep=" | ", lvl_tag=True, prefix="", end=""):
+def log_info(*msg, sep=" | ", lvl_tag=True, prefix="", end="") -> None:
     message = __set_level(*msg, sep=sep, level="INFO", enable=lvl_tag)
 
     logging.info(f"{message}{end}", extra={'prefix': prefix})
 
 
 # ===== Logging and Printing in one =====
-def __emit_print(txt: str, color: int):
+def __emit_print(txt: str, color: int) -> None:
     __print_level(
         txt,
         "\n",
@@ -131,19 +131,19 @@ def __emit_print(txt: str, color: int):
         is_bold=False
     )
 
-def emit_error(*msg, sep=" | ", lvl_tag = True):
+def emit_error(*msg, sep=" | ", lvl_tag = True) -> None:
     message = __set_level(*msg, sep=sep, level="ERROR", enable=lvl_tag)
 
     __emit_print(message, Color.RED)
     logging.error(f"{message}", extra={'prefix': ""})
 
-def emit_warning(*msg, sep=" | ", lvl_tag = True):
+def emit_warning(*msg, sep=" | ", lvl_tag = True) -> None:
     message = __set_level(*msg, sep=sep, level="WARNING", enable=lvl_tag)
 
     __emit_print(message, Color.YELLOW)
     logging.warning(f"{message}", extra={'prefix': ""})
     
-def emit_info(*msg, sep=" | ", lvl_tag = True):
+def emit_info(*msg, sep=" | ", lvl_tag = True) -> None:
     message = __set_level(*msg, sep=sep, level="INFO", enable=lvl_tag)
 
     __emit_print(message, Color.WHITE)

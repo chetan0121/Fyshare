@@ -1,97 +1,105 @@
 import re
 import sys
 from typing import Final, Union, Optional
-from enum import IntEnum
+
 from . import helper
 
-class TextStyle(IntEnum):
-    """Text styles"""
-    BOLD      = 1
-    DIM       = 2
-    UNDERLINE = 4
-    BLINK     = 5
-    REVERSE   = 7
-    HIDDEN    = 8    
+class TextStyle:
+    """Text style codes (immutable constants)."""
+    BOLD: Final = 1
+    DIM: Final = 2
+    UNDERLINE: Final = 4
+    BLINK: Final = 5
+    REVERSE: Final = 7
+    HIDDEN: Final = 8
 
-    # Custom style
-    BRIGHT = 200
-    BRIGHT_BG = 300
+    # Custom styles (bright variants handled separately)
+    BRIGHT: Final = 200
+    BRIGHT_BG: Final = 300
     
-    # Allows using enum values as callable methods
-    # e.g. TextStyle.BOLD("Hello")
-    def __call__(self, text):
+    def __call__(self, text: str) -> str:
+        """Allow using as TextStyle.BOLD(text) for compatibility."""
         return Style.styled(text, self)
 
-class Color(IntEnum):
-    """All Foreground color codes(integers)"""
-    BLACK   = 30
-    RED     = 31
-    GREEN   = 32
-    YELLOW  = 33
-    BLUE    = 34
-    MAGENTA = 35
-    CYAN    = 36
-    WHITE   = 37
+class Color:
+    """Foreground color codes (immutable constants)."""
+    BLACK: Final = 30
+    RED: Final = 31
+    GREEN: Final = 32
+    YELLOW: Final = 33
+    BLUE: Final = 34
+    MAGENTA: Final = 35
+    CYAN: Final = 36
+    WHITE: Final = 37
 
-    # Others
-    PURPLE  = MAGENTA
-    RESET = 39
-    DEFAULT = 39
+    # Aliases and defaults
+    PURPLE: Final = MAGENTA
+    RESET: Final = 39
+    DEFAULT: Final = 39
     
-    # Allows using enum values as callable methods
-    # e.g. Color.BLUE("Hello")
-    def __call__(self, text):
+    def __call__(self, text: str) -> str:
+        """Allow using as Color.RED(text) for compatibility."""
         return Style.styled(text, self)
 
-class Bg(IntEnum):
-    """All Background color codes(integers)"""
-    BLACK   = 40
-    RED     = 41
-    GREEN   = 42
-    YELLOW  = 43
-    BLUE    = 44
-    MAGENTA = 45
-    CYAN    = 46
-    WHITE   = 47
+class Bg:
+    """Background color codes (immutable constants)."""
+    BLACK: Final = 40
+    RED: Final = 41
+    GREEN: Final = 42
+    YELLOW: Final = 43
+    BLUE: Final = 44
+    MAGENTA: Final = 45
+    CYAN: Final = 46
+    WHITE: Final = 47
 
-    # Others
-    PURPLE  = MAGENTA
-    RESET = 49
-    DEFAULT = 49
+    # Aliases and defaults
+    PURPLE: Final = MAGENTA
+    RESET: Final = 49
+    DEFAULT: Final = 49
     
-    # Allows using enum values as callable methods
-    # e.g. Bg.BLUE("Hello")
-    def __call__(self, text):
+    def __call__(self, text: str) -> str:
+        """Allow using as Bg.BLUE(text) for compatibility."""
         return Style.styled(text, self)
     
 
 class Style:
+    """ANSI escape code builder and text styling utilities."""
     ESC: Final = "\033["
     RESET: Final = f"{ESC}0m"
     
     _VALID_ANSI: Final = re.compile(r'\033\[[0-?]*[ -/]*[@-~]')
     
-    # Cache valid color values
-    _VALID_FGS = (int(v) for k, v in Color.__dict__.items() if not k.startswith('_'))
-    _VALID_BGS = (int(v) for k, v in Bg.__dict__.items() if not k.startswith('_'))
+    # Cache valid color values as immutable sets for fast lookup.
+    _VALID_FGS: Final = frozenset(
+        v for k, v in Color.__dict__.items()
+        if not k.startswith('_') and isinstance(v, int)
+    )
+    _VALID_BGS: Final = frozenset(
+        v for k, v in Bg.__dict__.items()
+        if not k.startswith('_') and isinstance(v, int)
+    )
 
     @staticmethod
-    def _to_escape(codes: Optional[list[str]]):
-        """Convert Numbers to ANSI escape code if valid"""
+    def _to_escape(codes: Optional[list[int]]) -> str:
+        """Convert numbers to ANSI escape code sequence."""
         if not codes:
             return ""
         return f"{Style.ESC}{';'.join(str(c) for c in codes)}m"
     
     @staticmethod
-    def _resolve(codes: Union[list, tuple, set]) -> Optional[list]:
+    def _resolve(codes: Union[list, tuple, set]) -> Optional[list[int]]:
+        """Resolve ANSI codes and classify into colors, backgrounds, and styles.
+        
+        Args:
+            codes: Sequence of integers or objects representing ANSI codes.
+        
+        Returns:
+            Sorted list of final ANSI codes, or None if empty.
         """
-        Handle Code list and resolve custom codes
-        """
-        # Check if empty
         if not codes:
             return None
         
-        # Extract all valid integers
+        # Extract all valid integers (skip non-numeric inputs)
         raw_codes = []
         for c in codes:
             num = helper.try_parse_int(c)
@@ -140,44 +148,48 @@ class Style:
     
     @staticmethod
     def styled(text: str, *styles) -> str:
-        """
-        Return Styled Text wrapped with ANSI escape codes
+        """Apply ANSI styles to text and return the styled string.
         
-        :param text: Text to be styled
-        :param styles: Styles to be applied, like tuple of integers, 
+        Args:
+            text: Text to style.
+            *styles: ANSI codes (integers, objects with __int__) or aliases.
         
-        Usage: 
-            1. red_txt = styled("I am Bold Red", Colors.RED, TextStyle.BOLD)
-            2. yellow_txt = styled("Manually styling, Bold yellow txt", 1, 33)
+        Returns:
+            Text wrapped with ANSI escape codes (or original text if no styles).
+        
+        Raises:
+            TypeError: If text is not a string.
+        
+        Example:
+            Style.styled("Error", Color.RED, TextStyle.BOLD)
         """
         if not isinstance(text, str):
             raise TypeError("text must be type str")
         
-        # Check if empty
         if not styles:
             return text
         
         resolved = Style._resolve(styles)
         escape_seq = Style._to_escape(resolved)
-
+        
         return f"{escape_seq}{text}{Style.RESET}"
     
     @staticmethod
-    def print(txt="", *codes, prefix="", end="\n"):
-        """
-        Prints styled text to the console using ANSI escape codes.
+    def print(txt: str = "", *codes, prefix: str = "", end: str = "\n") -> None:
+        """Print styled text to stdout using ANSI escape codes.
 
         Args:
-            - txt: The text to print. Defaults to an empty string.
-            - *codes: Variable-length list of ANSI codes (int/str)
-                        to style the text. Example: 31 for red, 1 for bold.
-            - prefix: String appended before the styled txt.
-            - end: String appended after the styled text.
+            txt: Text to print (default empty string).
+            *codes: ANSI codes to apply (integers or style objects).
+            prefix: String to print before the styled text.
+            end: String to print after the styled text (default newline).
+        
         Notes:
-            - ANSI codes are applied to the text only; 
-                `end` and 'prefix' are printed as-is.
-            - If no valid ANSI codes are provided, the text is printed as it is.
-            - Invalid ANSI codes (non-integer/non-string/non-ANSI) are ignored.
+            - ANSI codes style only the text, not prefix or end.
+            - Invalid codes are silently ignored.
+        
+        Example:
+            Style.print("Success", Color.GREEN, TextStyle.BOLD, end="\\n")
         """
         msg = Style.styled(txt, *codes)
         sys.stdout.write(f"{prefix}{msg}{end}")
