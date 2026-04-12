@@ -3,22 +3,21 @@ import os
 from pathlib import Path
 import urllib.parse
 from http import HTTPStatus
-from http import server as http_server
 
 from .html_handler import HTMLHandler
-from ..utils import logger
-from .. import credentials, server
 from .response_handler import ResponseHandler
 from .security_mixin import SecurityMixin
+from .. import credentials, server
+from ..utils import logger
 from ..state import FileState, ServerState
 
-class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
+
+class FileHandler(SecurityMixin):
     """HTTP request handler for file serving with authentication and security."""
 
     def __init__(self, *args, **kwargs):
         """Initialize FileHandler with root directory and session manager."""
         self.config = FileState.CONFIG
-        self.root_dir = str(FileState.ROOT_DIR)
         self.session_manager = ServerState.session_manager
 
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
@@ -37,26 +36,13 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         if chunk_kb <= 0:
             raise ValueError("chunk_size must be a positive integer")
         
-        client_ip = self.client_address[0]
-        file_name = source.name
-        
         # Convert to KB
         chunk_size = int(chunk_kb * 1024)       
         try:
             while (data := source.read(chunk_size)):
                 outputfile.write(data)
-
-            logger.emit_info(
-                 "User Downloaded file",
-                f"IP: {client_ip}", 
-                f"File: \"{file_name}\""
-            )    
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-            logger.emit_info(
-                 "Canceled downloading file",
-                f"IP: {client_ip}", 
-                f"File: \"{file_name}\""
-            )
+            pass
 
     def do_GET(self) -> None:
         """Handle GET requests with authentication, rate limiting, and file serving."""
@@ -70,7 +56,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/favicon.ico':
-            favicon_path = FileState.STATIC_DIR / 'favicon.ico'
+            favicon_path = FileState.favicon_path
             if favicon_path.exists():
                 ResponseHandler.send_http_response(
                     self, file_path=favicon_path
@@ -87,52 +73,45 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                 logger.emit_info("User logged-out", f"IP: {curr_ip}")
                 self.session_manager.remove_session(session_token)
 
-            # Headers
-            home_page = ('Location', '/')
-            set_cookie = (
-                'Set-Cookie',
-                'session_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/'
-            )
-
-            ResponseHandler.send_extra_headers(
+            ResponseHandler.redirect_home(
                 self,
-                status=302,
-                headers=[home_page, set_cookie]
+                'session_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/'
             )
             return
 
         if self.path.startswith('/static/'):
-            file_path = FileState.STATIC_DIR / self.path[len('/static/'):]
+            static_dir = FileState.STATIC_DIR
+            rel_dir = self.path[len('/static/'):]
+            file_path = self.translate_path(rel_dir, static_dir)
+            
+            if file_path == static_dir:
+                self.send_error(403, "Permission denied")
+                return
             
             if not file_path.exists() or not file_path.is_file():
                 self.send_error(404, "File not found")
-                logger.emit_warning(
-                     "User tried to access invalid static path",
-                    f"IP: {client_ip}" ,
-                    f"Path: {file_path}",
-                )
                 return
 
             try:
                 ResponseHandler.send_http_response(
                     self, file_path=file_path, chunk_size=64
                 )
-                return
             except Exception as e:
-                self.send_error(500, f"Internal Server Error")
+                self.send_error(500, "Internal Server Error")
                 logger.emit_error(
                     f"During static file serve: {str(e)}",
                     f"IP: {client_ip}",
                     f"File: {file_path}"
                 )
-                return
+                
+            return
 
         if not self.check_authentication():
-            HTMLHandler.send_login_page(self)
+            ResponseHandler.send_login_page(self)
             return
 
         if self.path.endswith('.html'):
-            file_path = Path(self.translate_path(self.path))
+            file_path = self.translate_path(self.path)
             if file_path.exists() and file_path.is_file():
                 try:
                     ResponseHandler.send_http_response(
@@ -170,7 +149,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             return
         
         if self.session_manager.is_inCool(client_ip, current_time):
-            HTMLHandler.send_login_page(
+            ResponseHandler.send_login_page(
                 self, message="Too many attempts. Try again later."
             )
             return
@@ -188,45 +167,40 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             submitted_otp = str(params.get('otp', [''])[0])
             timeout_seconds = int(params.get('timeout', ['0'])[0])
         except ValueError:
-            HTMLHandler.send_login_page(self, message="Invalid input values.")
+            ResponseHandler.send_login_page(self, message="Invalid input values.")
             return
 
         if not self.validate_credentials(
             submitted_otp,
             timeout_seconds
         ):
-            HTMLHandler.send_login_page(
+            ResponseHandler.send_login_page(
                 self, 
                 message="Invalid input! Please check your otp format."
             )
             return
 
-        if len(self.session_manager.sessions) >= self.config['max_users']:
-            HTMLHandler.send_login_page(
-                self, 
-                message="Server busy—too many users. Try again later."
-            )
-            return
-        
         if submitted_otp == ServerState.otp:
             session_token = credentials.generate_session_token()
-            self.session_manager.add_session(
-                session_token, 
-                client_ip, 
-                current_time + timeout_seconds
+            was_added = self.session_manager.try_add_session(
+                session_token,
+                client_ip,
+                current_time + timeout_seconds,
             )
 
-            home_page = ('Location', '/')
-            set_cookie = (
-                'Set-Cookie', 
+            if not was_added:
+                ResponseHandler.send_login_page(
+                    self,
+                    message="Server busy—too many users. Try again later."
+                )
+                return
+
+            cookie = (
                 f'session_token={session_token}; '
                 f'Path=/; HttpOnly; Max-Age={timeout_seconds}; SameSite=Strict'
             )
-            ResponseHandler.send_extra_headers(
-                self,
-                status=302,
-                headers=[home_page, set_cookie]
-            )
+            ResponseHandler.redirect_home(self, cookie)
+            
             logger.emit_info("User logged-in", f"IP: {client_ip}")
 
         else:
@@ -234,7 +208,10 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             credential_rotation_threshold = self.config['max_users']*10
             self.session_manager.update_attempts(client_ip, current_time)
 
-            logger.emit_info("User tried to login with invalid otp", f"IP: {client_ip}")
+            logger.emit_info(
+                f"User tried to login with invalid otp \'{submitted_otp}\'",
+                f"IP: {client_ip}"
+            )
 
             with ServerState.credentials_lock:
                 ServerState.global_attempts += 1
@@ -245,13 +222,14 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
                     "Security shutdown triggered "
                     f"after {attempts} rapid login attempts"
                 )
+                return
 
             if attempts % credential_rotation_threshold == 0:
                 credentials.generate_credentials("Too many failed attempts on server")
 
-            HTMLHandler.send_login_page(self, message="Invalid otp.")
+            ResponseHandler.send_login_page(self, message="Invalid otp.")
 
-    def list_dir(self, path: str) -> None:
+    def list_dir(self, path: Path) -> None:
         """Generate and send directory listing as HTML table.
         
         Args:
@@ -261,7 +239,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             None if there was an error, otherwise void function.
         """
         try:
-            with os.scandir(path) as entries:
+            with os.scandir(str(path)) as entries:
                 file_list = list(entries)
         except PermissionError:
             self.send_error(403, "Permission denied")
@@ -275,7 +253,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             return None
 
         file_list.sort(key=lambda a: (not a.is_dir(), a.name.lower()))
-        display_path = os.path.relpath(path, self.root_dir or '.')
+        display_path = str(path.relative_to(FileState.ROOT_DIR))
 
         try:
             response = HTMLHandler.generate_html(file_list, display_path)
@@ -296,8 +274,8 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
         """
         path = self.translate_path(self.path)
 
-        if os.path.isdir(path):
-            if not self.path.endswith(('/', '%2f', '%2F')):
+        if path.is_dir():
+            if not self.path.endswith('/'):
                 self.send_response(HTTPStatus.MOVED_PERMANENTLY)
                 self.send_header("Location", self.path + "/")
                 self.send_header("Content-Length", "0")
@@ -306,7 +284,7 @@ class FileHandler(SecurityMixin, http_server.SimpleHTTPRequestHandler):
             
             return self.list_dir(path)
             
-        if path.endswith("/"):
+        if not path.exists() or not path.is_file():
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return None
         
