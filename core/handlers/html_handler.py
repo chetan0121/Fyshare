@@ -73,11 +73,13 @@ class HTMLHandler():
             if name.startswith('.'):
                 continue
             
-            # Dont append invalid symlinks
+            # Skip symlinks that are invalid or point outside ROOT_DIR
             if entry.is_symlink():
                 try:
-                    entry.resolve(strict=True)
-                except FileNotFoundError:
+                    resolved = entry.resolve(strict=True)
+                    resolved.relative_to(FileState.ROOT_DIR)
+                except (ValueError, RuntimeError, FileNotFoundError):
+                    # Invalid symlink or points outside root - skip
                     continue
 
             size = '-'

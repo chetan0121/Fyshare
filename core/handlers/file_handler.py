@@ -155,7 +155,7 @@ class FileHandler(SecurityMixin):
             return
         
         try:
-            # Validate Content-Length is reasonable (max 10KB for login form)
+            # Validate Content-Length is reasonable or not (max 10KB for login form)
             max_body_size = 10 * 1024
             
             content_length = int(self.headers.get('Content-Length', 0))
