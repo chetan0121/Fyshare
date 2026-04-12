@@ -32,12 +32,17 @@ class FileState:
         OPTIONS: Tuple of (minutes, label) for session timeout choices.
     """
     
-    # File and template paths
-    CONFIG: dict
+    # Directory and template paths
     ROOT_DIR: Path
     STATIC_DIR: Path
-    config_path: Path
     base_dir: Path
+    
+    # File paths
+    favicon_path: Path
+    config_path: Path
+    
+    # Config dict
+    CONFIG: dict
     
     # HTML templates (cached)
     LOGIN_HTML: str
@@ -191,7 +196,7 @@ class FileState:
         FileState.LOGIN_HTML = login_html.replace('{{options}}', options_html)
 
     @staticmethod
-    def set_static_dir(path: Union[str, Path]) -> None:
+    def setup_static_dir(path: Union[str, Path]) -> None:
         """Set and validate static assets directory.
         
         Args:
@@ -200,6 +205,10 @@ class FileState:
         Raises:
             UtilityError: If path doesn't exist or is not readable.
         """
+        # Set static dir
         path = helper.refine_path(path)
         helper.is_valid_dir(path)
         FileState.STATIC_DIR = path
+        
+        # Favicon
+        FileState.favicon_path = FileState.STATIC_DIR / 'images/favicon.ico'

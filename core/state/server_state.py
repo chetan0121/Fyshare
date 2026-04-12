@@ -29,7 +29,7 @@ class ServerState:
     is_initialized = False
 
     @classmethod
-    def init_server_state(cls):
+    def init_server_state(cls) -> None:
         """
         Initialize server states
         - Get and set local_ip
