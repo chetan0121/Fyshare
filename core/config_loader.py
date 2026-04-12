@@ -1,5 +1,6 @@
 from typing import Optional
 from .utils import helper, logger
+from .utils.style_manager import Style, Color, TextStyle
 from .state import FileState
 
 # Custom Exception
@@ -92,22 +93,27 @@ def load_config(config_path) -> Optional[dict]:
 
     return CONFIG
 
-def backup_config():
-    logger.print_info(
-        "Do you want to reset whole config to default?", 
-        end="\n", 
-        lvl_tag=False
-    )
-    try:
-        opt = input("Enter (y/n) => ").strip().lower()
-    except KeyboardInterrupt:
-        opt = "n"    
-
+def backup_config(file_name: str):
     config_path = FileState.config_path
+    source_path = config_path.with_name(file_name)
 
-    if opt == "y" or opt == "yes":
-        source_path = config_path.with_name("config_example.json")
+    # Prompt via StyleManager; keep status/error output on logger.
+    Style.print(
+        "Reset whole server config to default?",
+        Color.YELLOW,
+        TextStyle.BOLD,
+        end=" "
+    )
+    Style.print("(y/n) => ", Color.CYAN, end="")
 
+    try:
+        opt = input().strip().lower()
+    except KeyboardInterrupt:
+        logger.print_info("Reset cancelled by user", end="\n")
+        logger.print_error("Failed to recover config: Reset cancelled")
+        return False
+
+    if opt in ("y", "yes"):
         try:
             helper.copy_file(source_path, config_path)
         except helper.UtilityError as e:
@@ -121,9 +127,9 @@ def backup_config():
         )
         return True
 
-    elif opt == "n" or opt == "no":
+    elif opt in ("n", "no"):
         logger.print_info(
-             "Reset cancelled by user, "
+            "Reset cancelled by user, "
             f"Current config '{config_path.name}' was kept unchanged.",
             end="\n"
         )
