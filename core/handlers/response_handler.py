@@ -1,7 +1,9 @@
 import mimetypes
 from pathlib import Path
 from typing import Optional, Union, Sequence
-from http.server import SimpleHTTPRequestHandler as ReqHandler
+
+from ..handlers.html_handler import HTMLHandler
+from ..handlers.security_mixin import SecurityMixin
 from ..utils import logger
 
 class ResponseHandler:
@@ -15,7 +17,7 @@ class ResponseHandler:
 
     @staticmethod
     def send_extra_headers(
-        handler: ReqHandler,
+        handler: SecurityMixin,
         status: int = 200, 
         msg: Optional[str] = None,
         headers: Optional[Sequence[tuple[str, str]]] = None,
@@ -39,10 +41,49 @@ class ResponseHandler:
             for key, val in headers:
                 handler.send_header(key, val)
 
-        handler.end_headers()    
+        handler.end_headers()
+        
+    @staticmethod
+    def redirect_home(handler: SecurityMixin, cookie: Optional[str] = None) -> None:
+        """
+        Redirect to '/' with optional Set-Cookie header.
+
+        Args:
+            handler: HTTP request handler
+            cookie: full cookie string (e.g. "session_token=...; Path=/")
+        """
+        headers = [("Location", "/")]
+
+        if cookie:
+            headers.append(("Set-Cookie", cookie))
+
+        ResponseHandler.send_extra_headers(
+            handler,
+            status=302,
+            headers=headers
+        )
+        
+    @staticmethod
+    def send_login_page(handler: SecurityMixin, message: Optional[str] = None) -> None:
+        """Send login page HTML to client.
+        
+        Args:
+            handler: HTTP request handler.
+            message: Optional message to display on login page.
+        """
+        try:
+            html = HTMLHandler.get_login_html(message)
+            ResponseHandler.send_http_response(
+                handler,
+                content_type='text/html',
+                content=html
+            )
+        except Exception as e:
+            handler.send_error(500, f"Error: Something went wrong.")
+            logger.emit_error(f"Rendering login page: {str(e)}")
 
     @staticmethod
-    def send_blocked_response(handler: ReqHandler, content: str) -> None:
+    def send_blocked_response(handler: SecurityMixin, content: str) -> None:
         """Send 403 Forbidden response with provided HTML content.
         
         Args:
@@ -55,10 +96,10 @@ class ResponseHandler:
             content_type='text/html; charset=utf-8',
             content=content
         )
-    
+        
     @staticmethod
     def send_http_response(
-        handler: ReqHandler,
+        handler: SecurityMixin,
         status: int = 200,
         message: Optional[str] = None,
         content_type: str = "text/plain",
@@ -93,12 +134,10 @@ class ResponseHandler:
         is_path = path.is_file() if path else False
         
         # Handle Content and File Path
-        if content:
+        if content is not None:
+            # got both content and file path
             if is_path:
-                logger.emit_warning(
-                    "During response handling: got both content and file path",
-                    "Using content by default"
-                )
+                #  content by default
                 is_path = False
 
             if isinstance(content, str):
