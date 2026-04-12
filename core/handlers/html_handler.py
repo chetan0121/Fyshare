@@ -1,11 +1,9 @@
 from html import escape
 from urllib.parse import quote
 from pathlib import Path
-from typing import Union
-from http.server import SimpleHTTPRequestHandler as ReqHandler
-from .response_handler import ResponseHandler
+from typing import Optional, Union
+
 from ..state import FileState
-from ..utils import logger
 
 class HTMLHandler():
     """Handles HTML generation and rendering for file browser interface."""
@@ -190,24 +188,10 @@ class HTMLHandler():
             return "N/A"
 
     @staticmethod
-    def send_login_page(handler: ReqHandler, message: str | None = None) -> None:
-        """Send login page HTML to client.
-        
-        Args:
-            handler: HTTP request handler.
-            message: Optional message to display on login page.
-        """
-        try:
-            html = FileState.LOGIN_HTML
-            html = html.replace('{{message}}', message or '')
-            ResponseHandler.send_http_response(
-                handler,
-                content_type='text/html',
-                content=html
-            )
-        except Exception as e:
-            handler.send_error(500, f"Error: Something went wrong.")
-            logger.emit_error(f"Rendering login page: {str(e)}")
+    def get_login_html(msg: Optional[str] = None):
+        html = FileState.LOGIN_HTML
+        html = html.replace('{{message}}', msg or '')
+        return html
     
     @staticmethod
     def _add_table_row(file_name: str, icon: str, size: str, action: str) -> str:
