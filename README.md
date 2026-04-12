@@ -15,7 +15,7 @@ Minimum required version: **Python 3.9+**
 - **Zero Dependencies:** Runs entirely on the Python standard library.
 - **Secure by Design:**
   - Randomly selected ports (1500-9500).
-  - Per-session OTPs with limited validity and periodic rotation.
+   - Per-session OTPs with limited validity and periodic rotation (also refreshed based on `cleanup_timeout_minutes`).
   - Rate limiting and brute-force protection (tracks failed attempts per IP, applies cooldowns and temporary blocks).
   - Uses security headers (CSP, X-Frame-Options, etc.).
   - Automatically stops the server after an idle timeout (from `config.json`).
@@ -128,8 +128,10 @@ This will help you modify `config.json`:
 | `idle_timeout_minutes` | Server auto-shutdown time if no users are logged in. |
 | `refresh_time_seconds` | Server state refresh interval.                       |
 | `max_attempts_per_ip`  | Failed login attempts before cooldown.               |
+| `max_total_attempts_per_ip` | Total failed attempts per IP before temporary block. |
 | `cooldown_seconds`     | Duration of cooldown after failed attempts.          |
 | `block_time_minutes`   | Duration an IP is blocked after excessive failures.  |
+| `cleanup_timeout_minutes` | Cleanup window for stale attempts; also used for periodic credential rotation. |
 
 ---   
 
