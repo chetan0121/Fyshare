@@ -1,11 +1,14 @@
+from pathlib import Path
 import re
 import time
 from http.server import SimpleHTTPRequestHandler as ReqHandler
-from ..utils import helper
+from typing import Optional, Union
+from urllib.parse import unquote, urlparse
 from ..state import ServerState, FileState
+from ..utils import helper
 
 class SecurityMixin(ReqHandler):
-    def get_session_token(self) -> str | None:
+    def get_session_token(self) -> Optional[str]:
         """Extract session token from request cookies.
         
         Returns:
@@ -59,26 +62,25 @@ class SecurityMixin(ReqHandler):
         
         return True
 
-    def translate_path(self, path: str) -> str:
-        """Translate URL path to filesystem path with security validation.
+    def translate_path(self, path: Union[str,Path], base_dir: Union[str,Path] = None) -> Path:
+        if base_dir is None:
+            base_dir = FileState.ROOT_DIR
+        else:
+            base_dir = Path(base_dir)
         
-        Ensures the resolved path is within ROOT_DIR to prevent directory traversal.
+        # Clean URL
+        path = urlparse(str(path)).path
+        path = unquote(path)
         
-        Args:
-            path: URL path to translate.
-            
-        Returns:
-            The validated real filesystem path.
-            
-        Raises:
-            Sends 403 error if path is outside ROOT_DIR.
-        """
-        path = super().translate_path(str(path))
-        real_path = str(helper.refine_path(path))
-        if not real_path.startswith(str(FileState.ROOT_DIR)):
-            self.send_error(403, "Access denied")
-            return str(FileState.ROOT_DIR)
+        rel_path = path.strip('/')
         
-        return real_path  
-    
+        # Build final path
+        full_path = helper.refine_path(base_dir / rel_path)
+        
+        try:
+            full_path.relative_to(base_dir)
+        except ValueError:
+            return base_dir
+
+        return full_path
     
