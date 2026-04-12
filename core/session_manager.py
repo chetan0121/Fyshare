@@ -60,30 +60,29 @@ class SessionManager:
     def update_attempts(self, ip, current_time) -> None:
         with self.session_lock:
             if ip not in self.attempts:
-                self.attempts[ip] = {'count': 1, 'last_time': current_time}
-            else:
-                data = self.attempts[ip]
-                data['count'] += 1
-                data['last_time'] = current_time
+                self.attempts[ip] = {'count': 0, 'last_time': 0}
+                
+            data = self.attempts[ip]
+            data['count'] += 1
+            data['last_time'] = current_time
 
-                block_time = FileState.CONFIG['block_time_m']
-                cooldown_s = FileState.CONFIG['cooldown_s']
+            block_time = FileState.CONFIG['block_time_m']
+            cooldown_s = FileState.CONFIG['cooldown_s']
 
-                if data['count'] >= FileState.CONFIG['max_total_attempts']:
-                    data['blocked_until'] = current_time + block_time * 60
-                    logger.emit_warning(
-                        f"Blocked User for {block_time} minutes due to excessive attempts",
-                        f"IP: {ip}"
-                    )
-                    return
+            if data['count'] >= FileState.CONFIG['max_total_attempts']:
+                data['blocked_until'] = current_time + block_time * 60
+                logger.emit_warning(
+                    f"Blocked User for {block_time} minutes due to excessive attempts",
+                    f"IP: {ip}"
+                )
+                return
 
-                if data['count'] % FileState.CONFIG['max_attempts'] == 0:
-                    data['cool_until'] = current_time + cooldown_s
-                    logger.emit_info(
-                        f"User is in cool-down for {cooldown_s} seconds due to excessive attempts",
-                        f"IP: {ip}"
-                    )
-                    return
+            if data['count'] % FileState.CONFIG['max_attempts'] == 0:
+                data['cool_until'] = current_time + cooldown_s
+                logger.emit_info(
+                    f"User is in cool-down for {cooldown_s} seconds due to excessive attempts",
+                    f"IP: {ip}"
+                )
 
     def is_inCool(self, ip, current_time) -> bool:
         with self.session_lock:
