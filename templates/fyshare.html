@@ -1,49 +1,48 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-    <meta charset="utf-8">
-    <title>FyShare</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <script src="/static/theme_init.js"></script>
-    <link rel="stylesheet" href="/static/fyshare.css">
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>📂 FyShare </h1>
-            <div class="header-actions">
-                <button id="themeToggle">
-                    <span class="theme-icon">🌓</span>
-                </button>
-                <a href="/logout" class="logout-btn">Logout</a>
+    <head>
+        <meta charset="utf-8" />
+        <title>FyShare</title>
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, maximum-scale=1"
+        />
+        <script src="/static/scripts/theme_init.js"></script>
+        <link rel="stylesheet" href="/static/styles/fyshare.css" />
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>📂 FyShare</h1>
+                <div class="header-actions">
+                    <button id="themeToggle">
+                        <span class="theme-icon">🌓</span>
+                    </button>
+                    <a href="/logout" class="logout-btn">Logout</a>
+                </div>
             </div>
+
+            <div class="breadcrumb">{{breadcrumbs}}</div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th id="th-name">Name</th>
+                            <th id="th-size">Size</th>
+                            <th id="th-action">Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {{table_rows}}
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="empty-dir" hidden>📂 This directory is empty</div>
         </div>
 
-        <div class="breadcrumb">
-            {{breadcrumbs}}
-        </div>
-
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th id="th-name">Name</th>
-                        <th id="th-size">Size</th>
-                        <th id="th-action">Actions</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    {{table_rows}}
-                </tbody>
-            </table>
-        </div>
-        
-        <div id="empty-dir" hidden>
-            📂 This directory is empty
-        </div>
-    </div>
-
-    <script src="/static/main_script.js"></script>
-</body>
+        <script src="/static/scripts/main_script.js"></script>
+    </body>
 </html>

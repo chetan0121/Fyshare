@@ -25,7 +25,7 @@ def main() -> None:
 
     # Request for backup if config is invalid or not found
     if not FileState.CONFIG:
-        if not backup_config():
+        if not backup_config("config_example.json"):
             return
         FileState.CONFIG = load_config(FileState.config_path)
     
@@ -33,7 +33,7 @@ def main() -> None:
     try:
         FileState.set_root_path()
         FileState.set_templates(f"{this_dir}/templates")
-        FileState.set_static_dir(f"{this_dir}/static")
+        FileState.setup_static_dir(f"{this_dir}/static")
     except (StateError, helper.UtilityError) as e:
         logger.print_error(f"Directory setup failed: {e}", prefix="\n\n", end="\n")
         return
