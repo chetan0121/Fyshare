@@ -22,7 +22,7 @@ function animateIcon() {
     themeIcon.classList.add('theme-animate');
     setTimeout(
         () => themeIcon.classList.remove('theme-animate'), anim_duration
-    ); 
+    );
 }
 
 themeToggle.addEventListener('click', () => {
@@ -55,7 +55,7 @@ const parent_dir = document.getElementById('parent-dir') !== null ? 1 : 0;
 
 const totalDir = tbody.querySelectorAll('.table-wrapper table tbody tr').length
 
-// Check if no dir ()
+// Check if no dir
 if (totalDir <= parent_dir) {
     emptyState.hidden = false;
 }
