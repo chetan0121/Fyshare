@@ -155,7 +155,16 @@ class FileHandler(SecurityMixin):
             return
         
         try:
+            # Validate Content-Length is reasonable (max 10KB for login form)
+            max_body_size = 10 * 1024
+            
             content_length = int(self.headers.get('Content-Length', 0))
+            
+            if content_length < 0 or content_length > max_body_size:
+                logger.emit_error(f"Invalid Content-Length: {content_length}", f"IP: {client_ip}")
+                self.send_error(413, "Payload too large")
+                return
+            
             post_data = self.rfile.read(content_length).decode('utf-8')
             params = urllib.parse.parse_qs(post_data)
         except Exception as e:
