@@ -10,11 +10,17 @@ def normalize_config(config: dict) -> dict:
     """Normalize value types of config"""
     try:
         CONFIG = {
+            # Custom Server IP
+            "local_ip": str(config["local_ipv4"]),
+            
+            # Custom Port 
+            "port": str(config["port"]),
+            
             # Root directory served by the server
             "root_directory": str(config["root_directory"]),
 
             # Maximum number of users allowed to access the server                 
-            "max_users": int(config["max_users"]),  
+            "max_users": int(config["max_users"]),
 
             # Automatically stop server after this many minutes of inactivity                                
             "idle_timeout_m": int(config["idle_timeout_minutes"]),   
@@ -45,7 +51,10 @@ def normalize_config(config: dict) -> dict:
     return CONFIG
 
 def check_config(CONFIG: dict) -> None:
-    """Validates config values"""
+    """
+    Validates config values
+    - IP and port configs will be validated in server-state handling, not here.
+    """
     if CONFIG['max_users'] < 1 or CONFIG['max_users'] > 100:
         raise ConfigError("'max_users' must be a natural number from 1 to 100")
 
@@ -88,7 +97,7 @@ def load_config(config_path) -> Optional[dict]:
         CONFIG = normalize_config(raw_config)
         check_config(CONFIG)
     except (ConfigError, helper.UtilityError) as e:
-        logger.print_error(str(e))
+        logger.print_error(f"Config: {e}")
         return None
 
     return CONFIG
