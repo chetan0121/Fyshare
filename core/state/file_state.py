@@ -72,7 +72,7 @@ class FileState:
             StateError: If CONFIG not loaded, invalid input, or path validation fails.
         """
         if not FileState.CONFIG:
-            raise StateError("CONFIG not found - cannot set root path")
+            raise StateError("Config: cannot set root path, config not found")
         
         # CI/CD mode: skip prompts, use project directory
         if FileState.ci_mod:
@@ -87,22 +87,10 @@ class FileState:
             saved_path = Path("~").expanduser()
 
         # Prompt user for path selection
-        path = FileState._prompt_user_path(saved_path)
-        
-        # Validate path is not inside project
-        if FileState.base_dir in path.parents or path == FileState.base_dir:
-            raise StateError(
-                f"Root directory '{path}' cannot be inside FyShare folder"
-            )
-        
-        # Persist new choice to config
-        if path != saved_path:
-            FileState._save_path_to_config(path)
-        
-        FileState.ROOT_DIR = path
+        FileState.ROOT_DIR = FileState._get_root_path(saved_path)
     
     @staticmethod
-    def _prompt_user_path(default_path: Path) -> Path:
+    def _get_root_path(default_path: Path) -> Path:
         """Prompt user to select or enter root directory path.
         
         Args:
@@ -116,7 +104,7 @@ class FileState:
         """
         home_dir = str(Path("~").expanduser())
         
-        S.Style.print("\nSelect path to host:", S.TextStyle.BOLD)
+        S.Style.print("\nSelect path to host:", S.TextStyle.BOLD, S.Color.CYAN)
         S.Style.print(f"1. Last used ({default_path})")
         S.Style.print(f"2. Home ({home_dir})")
         S.Style.print(f"3. New path")
@@ -138,6 +126,17 @@ class FileState:
         # Validate path
         path = helper.refine_path(path_str)
         helper.is_valid_dir(path)
+        
+        # Validate path is not inside project
+        if FileState.base_dir in path.parents or path == FileState.base_dir:
+            raise StateError(
+                f"Root directory '{path}' cannot be inside FyShare folder"
+            )
+        
+        # Save path only if 
+        if opt == 3:
+            FileState._save_path_to_config(path)
+        
         return path
     
     @staticmethod
