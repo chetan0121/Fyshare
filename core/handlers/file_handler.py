@@ -36,10 +36,10 @@ class FileHandler(SecurityMixin):
         if chunk_kb <= 0:
             raise ValueError("chunk_size must be a positive integer")
         
-        # Convert to KB
-        chunk_size = int(chunk_kb * 1024)
-        
+        chunk_size = int(chunk_kb * 1024)   # To bytes
         bytes_sent = 0
+        client_ip = self.client_address[0]
+        
         try:
             while (data := source.read(chunk_size)):
                 outputfile.write(data)
@@ -47,15 +47,15 @@ class FileHandler(SecurityMixin):
                 
             logger.emit_info(
                 "File transfer completed",
-                f"IP: {self.client_address[0]}",
-                f"Path: {self.path}",
+                f"IP: {client_ip}",
+                f"Path: \"{self.path}\"",
                 f"Bytes sent: {bytes_sent}"
             )
         except (BrokenPipeError, ConnectionError):
             logger.emit_info(
-                "Client canceled file transfer",
-                f"IP: {self.client_address[0]}",
-                f"Path: {self.path}",
+                "File transfer canceled",
+                f"IP: {client_ip}",
+                f"Path: \"{self.path}\"",
                 f"Bytes sent: {bytes_sent}"
             )
 

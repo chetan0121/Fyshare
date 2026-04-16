@@ -8,17 +8,23 @@ from .state import FileState
 
 class SessionManager:
     def __init__(self):
-        # {token: {'ip': client_ip, 'expiry': timestamp}}
-        self.sessions = {}      
+        self.sessions: dict = {}      
+        # {
+        #     token: {
+        #         'ip': client_ip, 
+        #         'expiry': timestamp
+        #     }
+        # }
 
-        self.attempts = {}  # {
-                            #    ip: {
-                            #       'count': int, 
-                            #       'last_time': time, 
-                            #       'cool_until: time', 
-                            #       'blocked_until': time
-                            #    }
-                            # }
+        self.attempts: dict = {}    
+        # {
+        #    ip: {
+        #       'count': int, 
+        #       'last_time': time, 
+        #       'cool_until: time', 
+        #       'blocked_until': time
+        #    }
+        # }
 
         # Thread lock for every function 
         self.session_lock = threading.Lock()

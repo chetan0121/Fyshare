@@ -4,7 +4,7 @@ from typing import Optional
 from http.server import ThreadingHTTPServer
 
 from ..utils import helper, logger
-from ..utils import local_ip
+from ..utils import ip_resolver
 from ..session_manager import SessionManager
 from .file_state import FileState
 
@@ -57,7 +57,7 @@ class ServerState:
         """
         ip = str(FileState.CONFIG["local_ip"]).strip().lower()
         if ip not in ("auto", ""):
-            if local_ip.is_valid_ipv4(ip):
+            if ip_resolver.is_valid_ipv4(ip):
                 return ip
             
             logger.print_warning(
@@ -67,7 +67,7 @@ class ServerState:
         
         logger.print_info("Auto fetching device IP.", end="\n")
         
-        return local_ip.get_local_ip()
+        return ip_resolver.get_local_ip()
         
     @classmethod
     def _select_port(cls) -> int:
@@ -101,7 +101,7 @@ class ServerState:
     def _get_server_url(cls):
         ip = cls.local_ip
         if ip == "0.0.0.0":
-            ip = local_ip.get_local_ip()
+            ip = ip_resolver.get_local_ip()
             
         return f"http://{ip}:{cls.port}"
         

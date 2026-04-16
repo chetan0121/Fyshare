@@ -12,7 +12,7 @@ def generate_otp(length=6) -> str:
 
 def _print_credentials(message: str):
     root_dir = f"\"{FileState.ROOT_DIR}\""
-    login_link = f"http://{ServerState.local_ip}:{ServerState.port}"
+    link = ServerState.server_url
     separator_line = str('-'*50)
     
     # Print credentials and stats
@@ -20,7 +20,7 @@ def _print_credentials(message: str):
     Style.print(separator_line, TextStyle.BOLD)
 
     Style.print(f"Serving directory : {root_dir}", TextStyle.BOLD)
-    Style.print(f"Open in browser   : {login_link}", TextStyle.BOLD)
+    Style.print(f"Open in browser   : {link}", TextStyle.BOLD)
 
     Style.print(f"\nLogin Details:", 36, TextStyle.BOLD)
     Style.print(f"   • OTP       : {ServerState.otp}")
