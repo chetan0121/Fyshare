@@ -2,7 +2,7 @@
 
 **FyShare** is a lightweight, dependency-free Python tool that lets you quickly host a temporary file-sharing server on your local network (LAN) with a clean web interface.
 
-Perfect for sharing files offline over your trusted local area network — no internet required.
+Perfect for sharing files offline over your trusted local area network, no internet required.
 
 Designed for simplicity and usability.
 
@@ -14,8 +14,8 @@ Minimum required version: **Python 3.9+**
 
 - **Zero Dependencies:** Runs entirely on the Python standard library.
 - **Secure by Design:**
-  - Randomly selected ports (1500-9500).
-   - Per-session OTPs with limited validity and periodic rotation (also refreshed based on `cleanup_timeout_minutes`).
+   - Auto-detects local IP; configurable ports (fallback: first available port from 1500-9499).
+   - OTP-based login with periodic rotation (refreshed based on `cleanup_timeout_minutes`).
   - Rate limiting and brute-force protection (tracks failed attempts per IP, applies cooldowns and temporary blocks).
   - Uses security headers (CSP, X-Frame-Options, etc.).
   - Automatically stops the server after an idle timeout (from `config.json`).
@@ -31,11 +31,12 @@ Minimum required version: **Python 3.9+**
 
 ## Requirements
 
-- Host and receiver connected to the same LAN.
-- A browser on the receiver's device (e.g., Chrome).
-- **Python 3.9** or higher on the host's device.
+- Host and receiver must be on the same LAN.
+- A browser on receiver device.
+- Python 3.9+ on host.
 
-Check your version:
+Check Python version:
+
 ```bash
 python --version
 # or
@@ -70,7 +71,9 @@ py --version
    ```
 
 2. **Select a directory:**
-   The application will ask which directory you want to share. You can choose the default path, enter a custom path, or use a temporary path. (e.g., `%USERPROFILE%\Downloads`)
+   The application will ask which directory you want to share. You can choose the last used path, home path, or enter a new custom path. (e.g., `%USERPROFILE%\Downloads`)
+
+   Note: The selected shared directory cannot be inside the FyShare project folder.
 
 3. **Connect:**
    - The terminal will display a **URL** (e.g., `http://192.168.1.5:4521`) and an **OTP**.
@@ -121,8 +124,12 @@ Steps to host a file-sharing server from an Android device using Termux.
 
 This will help you modify `config.json`:
 
+If `config.json` is invalid or missing, FyShare can restore it from `config_example.json` after confirmation.
+
 | Key                    | Description                                          |
 | :---                   | :---                                                 |
+| `local_ipv4`           | Local IP to bind to. Set to `"auto"` for auto-detection. |
+| `port`                 | Server port. Set to `"auto"` for auto-selection. |
 | `root_directory`       | The default path to share/serve                      |
 | `max_users`            | Maximum concurrent users allowed.                    |
 | `idle_timeout_minutes` | Server auto-shutdown time if no users are logged in. |

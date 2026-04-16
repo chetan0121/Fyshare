@@ -42,17 +42,16 @@ def main() -> None:
         return
 
     # Initialize core components for server
-    ServerState.init_server_state()
     try:
+        ServerState.init_server_state()
         server.init_server()
     except (ValueError, RuntimeError) as e:
-        logger.print_error(str(e))  
+        logger.emit_error(str(e))  
         return  
 
     # First-time startup banner
-    startup_url = f"http://{ServerState.local_ip}:{ServerState.port}"
     logger.log_info(
-        f"Server started → {startup_url}",
+        f"Server started → {ServerState.server_url}",
         f"Root Dir: '{FileState.ROOT_DIR}'",
         prefix=f"{'='*100}\n"
     )
