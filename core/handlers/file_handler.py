@@ -37,12 +37,27 @@ class FileHandler(SecurityMixin):
             raise ValueError("chunk_size must be a positive integer")
         
         # Convert to KB
-        chunk_size = int(chunk_kb * 1024)       
+        chunk_size = int(chunk_kb * 1024)
+        
+        bytes_sent = 0
         try:
             while (data := source.read(chunk_size)):
                 outputfile.write(data)
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-            pass
+                bytes_sent += len(data)
+                
+            logger.emit_info(
+                "File transfer completed",
+                f"IP: {self.client_address[0]}",
+                f"Path: {self.path}",
+                f"Bytes sent: {bytes_sent}"
+            )
+        except (BrokenPipeError, ConnectionError):
+            logger.emit_info(
+                "Client canceled file transfer",
+                f"IP: {self.client_address[0]}",
+                f"Path: {self.path}",
+                f"Bytes sent: {bytes_sent}"
+            )
 
     def do_GET(self) -> None:
         """Handle GET requests with authentication, rate limiting, and file serving."""
@@ -200,7 +215,7 @@ class FileHandler(SecurityMixin):
             if not was_added:
                 ResponseHandler.send_login_page(
                     self,
-                    message="Server busy—too many users. Try again later."
+                    message="Server busy, too many users. Try again later."
                 )
                 return
 

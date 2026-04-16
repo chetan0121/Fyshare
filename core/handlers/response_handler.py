@@ -182,5 +182,4 @@ class ResponseHandler:
                 for i in range(0, file_size, chunk):
                     handler.wfile.write(body[i:i + chunk])
         except (BrokenPipeError, ConnectionError):
-            logger.print_info("Client disconnected during http-response")
-            return
+            logger.emit_info("Client disconnected during http-response")
