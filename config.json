@@ -1,4 +1,6 @@
 {
+  "local_ipv4": "auto",
+  "port": "auto",
   "root_directory": "~",
   "max_users": 1,
   "idle_timeout_minutes": 5,
