@@ -168,6 +168,9 @@ def is_hostable_ipv4(ip: str) -> bool:
     if not ip or any(ip.startswith(s) for s in ["127.", "169.254.", "0.", "224.", "255."]):
         return False
     
+    return is_valid_ipv4(ip)
+    
+def is_valid_ipv4(ip: str) -> bool:
     # Verify four decimal octets
     parts = ip.split('.')
     if len(parts) != 4:
@@ -180,6 +183,6 @@ def is_hostable_ipv4(ip: str) -> bool:
             return False
 
         if not (0 <= num <= 255):
-            return False        
-    
+            return False     
+
     return True
