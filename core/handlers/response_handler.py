@@ -165,17 +165,22 @@ class ResponseHandler:
             ("Content-Length", str(file_size)),
         ]
         
-        ResponseHandler.send_extra_headers(
-            handler,
-            status, message,
-            extra_headers
-        )
-
-        # Body
-        if is_path:
-            with path.open('rb') as f:
-                while (data := f.read(chunk)):
-                    handler.wfile.write(data)
-        else:
-            for i in range(0, file_size, chunk):
-                handler.wfile.write(body[i:i + chunk])
+        try:
+            # Send headers
+            ResponseHandler.send_extra_headers(
+                handler,
+                status, message,
+                extra_headers
+            )
+            
+            # Send Body
+            if is_path:
+                with path.open('rb') as f:
+                    while (data := f.read(chunk)):
+                        handler.wfile.write(data)
+            else:
+                for i in range(0, file_size, chunk):
+                    handler.wfile.write(body[i:i + chunk])
+        except (BrokenPipeError, ConnectionError):
+            logger.print_info("Client disconnected during http-response")
+            return
