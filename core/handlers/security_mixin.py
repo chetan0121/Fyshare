@@ -8,6 +8,8 @@ from ..state import ServerState, FileState
 from ..utils import helper
 
 class SecurityMixin(ReqHandler):
+    """Security and path-safety helpers shared by request handlers."""
+
     def get_session_token(self) -> Optional[str]:
         """Extract session token from request cookies.
         
@@ -63,6 +65,16 @@ class SecurityMixin(ReqHandler):
         return True
 
     def translate_path(self, path: Union[str,Path], base_dir: Union[str,Path] = None) -> Path:
+        """Resolve a URL path under a base directory and contain traversal.
+
+        Args:
+            path: Raw request path or relative path segment.
+            base_dir: Root directory to resolve from. Defaults to server root.
+
+        Returns:
+            A normalized absolute path contained within `base_dir`.
+            If traversal escapes base_dir, returns `base_dir` itself.
+        """
         if base_dir is None:
             base_dir = FileState.ROOT_DIR
         else:

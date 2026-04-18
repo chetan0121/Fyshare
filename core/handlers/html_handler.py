@@ -191,6 +191,7 @@ class HTMLHandler():
 
     @staticmethod
     def get_login_html(msg: Optional[str] = None):
+        """Return cached login template with message placeholder filled."""
         html = FileState.LOGIN_HTML
         html = html.replace('{{message}}', msg or '')
         return html
