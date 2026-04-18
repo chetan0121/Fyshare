@@ -62,10 +62,11 @@ jobs:
             --distpath ./bin \
             --workpath ./bin/build \
             --specpath ./bin \
-            --add-data "static:static" \
-            --add-data "templates:templates" \
-            --add-data "config.json:." \
-            --add-data "config_example.json:." \
+            --add-data "../static:static" \
+            --add-data "../templates:templates" \
+            --add-data "../config.json:." \
+            --add-data "../config_example.json:." \
+            -y \
             FyShare.py
           echo "::endgroup::"
 
@@ -73,7 +74,7 @@ jobs:
         run: |
           test -d ./bin/FyShare
           cd bin/FyShare
-          zip -r ../fyshare-linux-64-shared.zip .
+          zip -r ../fyshare-linux-x64-shared.zip .
           cd ../..
 
       - name: Log packaged artifact details
@@ -85,7 +86,7 @@ jobs:
       - name: Upload artifact snapshot
         uses: actions/upload-artifact@v4
         with:
-          name: fyshare-linux-64-shared
+          name: fyshare-linux-x64-shared
           path: bin/fyshare-linux-x64-shared.zip
           if-no-files-found: error
 
@@ -93,7 +94,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          files: bin/fyshare-linux-64-shared.zip
+          files: bin/fyshare-linux-x64-shared.zip
           fail_on_unmatched_files: true
           overwrite_files: true
         env:
