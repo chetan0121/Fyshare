@@ -6,9 +6,13 @@ on:
   pull_request:
     branches: [main, dev]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     strategy:
       fail-fast: false
@@ -29,28 +33,42 @@ jobs:
         run: |
           python -V
           pip -V
+          echo "Runner: $RUNNER_OS"
+          echo "Ref: $GITHUB_REF"
+          echo "SHA: $GITHUB_SHA"
 
       - name: Startup Smoke Test (FyShare.py)
         id: smoke
         env:
           FYSHARE_CI: "1"
         run: |
-          timeout 10s python FyShare.py &
-          APP_PID=$!
+          set -euo pipefail
+          python FyShare.py > fyshare-startup.log 2>&1 &
+          APP_PID="$!"
           sleep 5
 
-          if ps -p $APP_PID > /dev/null; then
+          if kill -0 "$APP_PID" 2>/dev/null; then
             echo "passed=true" >> "$GITHUB_OUTPUT"
             echo "FyShare OK"
             STATUS=0
           else
             echo "passed=false" >> "$GITHUB_OUTPUT"
             echo "FyShare Failed"
+            echo "--- Startup log tail ---"
+            tail -n 120 fyshare-startup.log || true
             STATUS=1
           fi
 
-          kill $APP_PID 2>/dev/null || true
-          wait $APP_PID 2>/dev/null || true
+          kill "$APP_PID" 2>/dev/null || true
+          wait "$APP_PID" 2>/dev/null || true
           pkill -f FyShare.py 2>/dev/null || true
 
           exit $STATUS
+
+      - name: Upload startup log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fyshare-startup-log-${{ matrix.python-version }}
+          path: fyshare-startup.log
+          if-no-files-found: ignore

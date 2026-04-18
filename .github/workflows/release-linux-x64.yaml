@@ -1,35 +1,56 @@
 name: Release Linux x64
 
+run-name: Release Linux x64 (${{ github.event.workflow_run.head_sha }})
+
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-linux-x64
+  cancel-in-progress: true
+
 jobs:
   build:
+    # 🔥 ONLY condition you actually need
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push' }}
+
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout repo
+      - name: Checkout correct commit
         uses: actions/checkout@v4
-
-      - name: Cache pip
-        uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.9"
 
-      - name: Install dependencies
+      - name: Install PyInstaller
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller==6.11.1
+
+      - name: Log release context
+        run: |
+          echo "Source workflow run: ${{ github.event.workflow_run.id }}"
+          echo "Source SHA: ${{ github.event.workflow_run.head_sha }}"
+          echo "Triggered by branch: ${{ github.event.workflow_run.head_branch }}"
+
+      - name: Verify required build files
+        run: |
+          test -f FyShare.py
+          test -f config.json
+          test -f config_example.json
+          test -d static
+          test -d templates
 
       - name: Build with PyInstaller
         run: |
@@ -43,23 +64,26 @@ jobs:
             --add-data "config_example.json:." \
             FyShare.py
 
-      - name: Zip binary
+      - name: Package binary
         run: |
+          test -f ./bin/FyShare
           cd bin
-          zip -j fyshare-linux-x64.zip FyShare
+          zip -j fyshare-linux.zip FyShare
           cd ..
 
-      - name: Upload artifact
+      - name: Upload release artifact snapshot
         uses: actions/upload-artifact@v4
         with:
           name: fyshare-linux
-          path: bin/fyshare-linux-x64.zip
+          path: bin/fyshare-linux.zip
+          if-no-files-found: error
 
-      - name: Create Release
+      - name: Publish release asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: FyShare Release
-          files: bin/fyshare-linux-x64.zip
+          files: bin/fyshare-linux.zip
+          fail_on_unmatched_files: true
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
