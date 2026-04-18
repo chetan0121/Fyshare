@@ -1,32 +1,25 @@
 name: Release Linux x64
 
 on:
-  workflow_dispatch:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  push:
+    branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')) || (github.event_name == 'workflow_dispatch' && (github.ref_name == 'main' || github.ref_name == 'dev')) }}
-    permissions:
-      contents: write
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-          fetch-depth: 0
 
       - name: Cache pip
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-3.9-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,36 +28,38 @@ jobs:
 
       - name: Install dependencies
         run: |
-          echo "Python: $(python --version)"
           python -m pip install --upgrade pip
           pip install pyinstaller==6.11.1
 
       - name: Build with PyInstaller
         run: |
-          echo "Building..."
-          pyinstaller --onefile --distpath ./bin --workpath ./bin/build --specpath ./bin --add-data "static:static" --add-data "templates:templates" --add-data "config.json:." --add-data "config_example.json:." FyShare.py
-          echo "Output: ./bin"
+          pyinstaller --onefile \
+            --distpath ./bin \
+            --workpath ./bin/build \
+            --specpath ./bin \
+            --add-data "static:static" \
+            --add-data "templates:templates" \
+            --add-data "config.json:." \
+            --add-data "config_example.json:." \
+            FyShare.py
 
-      - name: Upload artifact (debug)
+      - name: Zip binary
+        run: |
+          cd bin
+          zip -j fyshare-linux-x64.zip FyShare
+          cd ..
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: fyshare-linux
-          path: bin/FyShare
-
-      - name: Create release zip
-        run: |
-          echo "Packaging..."
-          cd bin
-          zip -j fyshare-linux-x64-latest.zip FyShare
-          ls -lh fyshare-linux-x64-latest.zip
-          cd ..
+          path: bin/fyshare-linux-x64.zip
 
       - name: Create Release
-        if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || (github.event_name == 'workflow_dispatch' && github.ref_name == 'main') }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: FyShare Release
-          files: bin/fyshare-linux-x64-latest.zip
+          files: bin/fyshare-linux-x64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,26 +1,19 @@
 name: Release Windows x64
 
 on:
-  workflow_dispatch:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  push:
+    branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
-    runs-on: windows-2022
-    if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')) || (github.event_name == 'workflow_dispatch' && (github.ref_name == 'main' || github.ref_name == 'dev')) }}
-    permissions:
-      contents: write
+    runs-on: windows-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -30,35 +23,38 @@ jobs:
 
       - name: Install dependencies
         run: |
-          echo "Python: $(python --version)"
           python -m pip install --upgrade pip
           pip install pyinstaller==6.11.1
 
       - name: Build with PyInstaller
         run: |
-          echo "Building..."
-          pyinstaller --onefile --distpath ".\bin" --workpath ".\bin\build" --specpath ".\bin" --icon ".\static\images\favicon_256x256.ico" --add-data ".\static;static" --add-data ".\templates;templates" --add-data ".\config.json;." --add-data ".\config_example.json;." FyShare.py
-          echo "Output: .\bin"
+          pyinstaller --onefile `
+            --distpath ".\bin" `
+            --workpath ".\bin\build" `
+            --specpath ".\bin" `
+            --icon ".\static\images\fyshare_logo_256x256.ico" `
+            --add-data ".\static;static" `
+            --add-data ".\templates;templates" `
+            --add-data ".\config.json;." `
+            --add-data ".\config_example.json;." `
+            FyShare.py
 
-      - name: Upload artifact (debug)
+      - name: Zip binary
+        shell: powershell
+        run: |
+          Compress-Archive -Path ".\bin\FyShare.exe" -DestinationPath ".\bin\fyshare-win64.zip"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: fyshare-win64
-          path: bin/FyShare.exe
-
-      - name: Create release zip
-        shell: powershell
-        run: |
-          Write-Host "Packaging..."
-          Compress-Archive -Path ".\bin\FyShare.exe" -DestinationPath ".\bin\fyshare-win64-latest.zip"
-          Get-Item ".\bin\fyshare-win64-latest.zip" | Select-Object @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB, 2)}} | Format-Table -AutoSize
+          path: bin/fyshare-win64.zip
 
       - name: Create Release
-        if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || (github.event_name == 'workflow_dispatch' && github.ref_name == 'main') }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: FyShare Release
-          files: bin/fyshare-win64-latest.zip
+          files: bin/fyshare-win64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
