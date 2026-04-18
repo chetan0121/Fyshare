@@ -13,7 +13,12 @@ from ..state import FileState, ServerState
 
 
 class FileHandler(SecurityMixin):
-    """HTTP request handler for file serving with authentication and security."""
+    """Request handler for authenticated file browsing and downloads.
+
+    This handler gates protected routes behind session auth, applies
+    block/cooldown checks for login attempts, serves static assets, and
+    dispatches directory or file responses under the configured root.
+    """
 
     def __init__(self, *args, **kwargs):
         """Initialize config/session references and base handler directory."""
@@ -22,45 +27,16 @@ class FileHandler(SecurityMixin):
 
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
 
-    def stream_file(self, source_file, destination_file, chunk_size_kb: float = 64.0) -> None:
-        """Stream a file in chunks and log completion or early disconnect.
-
-        Args:
-            source_file: Readable binary file object.
-            destination_file: Writable binary stream (usually `self.wfile`).
-            chunk_size_kb: Chunk size in KB; must be greater than 0.
-
-        Raises:
-            ValueError: If `chunk_size_kb` is not positive.
-        """
-        if chunk_size_kb <= 0:
-            raise ValueError("chunk_size_kb must be a positive number")
-        
-        chunk_size = int(chunk_size_kb * 1024)   # Convert to bytes
-        bytes_sent = 0
-        client_ip = self.client_address[0]
-        
-        try:
-            while (data := source_file.read(chunk_size)):
-                destination_file.write(data)
-                bytes_sent += len(data)
-                
-            logger.emit_info(
-                "File transfer completed",
-                f"IP: {client_ip}",
-                f"Path: \"{self.path}\"",
-                f"Bytes sent: {bytes_sent}"
-            )
-        except (BrokenPipeError, ConnectionError):
-            logger.emit_info(
-                "File transfer canceled",
-                f"IP: {client_ip}",
-                f"Path: \"{self.path}\"",
-                f"Bytes sent: {bytes_sent}"
-            )
-
     def do_GET(self) -> None:
-        """Handle GET requests with authentication, rate limiting, and file serving."""
+        """Handle GET requests for login, static assets, files, and directories.
+
+        Flow overview:
+        - Reject blocked clients.
+        - Serve special public endpoints (`/favicon.ico`, `/logout`, `/static/*`).
+        - Require authentication for protected routes.
+        - Serve `.html` files directly when requested.
+        - For all remaining paths, resolve and serve file-or-directory content.
+        """
         client_ip = self.client_address[0]
         current_time = time.monotonic()
 
@@ -109,7 +85,7 @@ class FileHandler(SecurityMixin):
 
             try:
                 ResponseHandler.send_http_response(
-                    self, file_path=file_path, chunk_size=64
+                    self, file_path=file_path
                 )
             except Exception as e:
                 self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -143,10 +119,19 @@ class FileHandler(SecurityMixin):
             return    
         
         # Handle directory and file serving
-        self.send_head()
+        self.send_file_or_dir()
 
     def do_POST(self) -> None:
-        """Handle OTP login submission and session creation."""
+        """Handle login form submission and session creation via OTP.
+
+        Expected payload fields:
+        - `otp`: six-digit one-time password.
+        - `timeout`: selected session duration in seconds.
+
+        Applies per-IP cooldown/block checks before parsing request data,
+        validates credentials format and timeout bounds, then creates a
+        session on success or updates brute-force tracking on failure.
+        """
         client_ip = self.client_address[0]
         current_time = time.monotonic()
 
@@ -248,10 +233,12 @@ class FileHandler(SecurityMixin):
             ResponseHandler.send_login_page(self, message="Invalid otp.")
 
     def list_dir(self, path: Path) -> None:
-        """Generate and send directory listing as HTML table.
+        """Render and send a directory listing page.
         
         Args:
-            path: Directory path to enumerate.
+            path: Absolute directory path under the server root.
+
+        Sends an HTTP error response if the directory cannot be enumerated.
         """
         try:
             with os.scandir(str(path)) as entries:
@@ -281,11 +268,14 @@ class FileHandler(SecurityMixin):
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
             logger.emit_error(f"Generating response: {str(e)}")   
 
-    def send_head(self):
-        """Serve the resolved path as a directory listing or streamed file.
+    def send_file_or_dir(self) -> None:
+        """Serve the current request path as a directory or file.
 
-        Handles redirecting directory URLs without a trailing slash and sends
-        standard headers for files before streaming content.
+        Behavior:
+        - If path is a directory without trailing slash, redirect to slash form.
+        - If path is a directory with trailing slash, send listing page.
+        - If path is a file, stream it to the client.
+        - Otherwise send 404.
         """
         path = self.translate_path(self.path)
 
@@ -295,31 +285,20 @@ class FileHandler(SecurityMixin):
                     self, HTTPStatus.MOVED_PERMANENTLY,
                     self.path + "/"
                 )
-                return None
-
-            return self.list_dir(path)
+            else:
+                self.list_dir(path)
+                
+            return
             
         if not path.exists() or not path.is_file():
             self.send_error(HTTPStatus.NOT_FOUND)
-            return None
+            return
         
-        f = None
         try:
-            f = open(path, 'rb')
-            fs = os.fstat(f.fileno())
-        except OSError:
-            self.send_error(HTTPStatus.NOT_FOUND)
-            if f: f.close()
-            return None
-
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", self.guess_type(path))
-        self.send_header("Content-Length", str(fs.st_size))
-        self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
-        self.end_headers()
-        
-        # Stream file content to client in chunks
-        try:
-            self.stream_file(f, self.wfile)
-        finally:
-            f.close()
+            ResponseHandler.send_http_response(
+                self,
+                file_path=path,
+                logging=True
+            )
+        except Exception as e:
+            logger.emit_error(f"Sending head: {str(e)}")   
