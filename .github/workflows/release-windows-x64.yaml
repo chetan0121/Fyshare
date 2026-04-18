@@ -1,6 +1,7 @@
 name: Release Windows x64
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -11,14 +12,14 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
-    if: ${{ github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev') }}
+    if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')) || (github.event_name == 'workflow_dispatch' && (github.ref_name == 'main' || github.ref_name == 'dev')) }}
     permissions:
       contents: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -53,7 +54,7 @@ jobs:
           Get-Item ".\bin\fyshare-win64-latest.zip" | Select-Object @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB, 2)}} | Format-Table -AutoSize
 
       - name: Create Release
-        if: ${{ github.event.workflow_run.head_branch == 'main' }}
+        if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || (github.event_name == 'workflow_dispatch' && github.ref_name == 'main') }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
