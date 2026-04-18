@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    # Publish only for successful CI runs originating from pushes to main.
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push' }}
 
     runs-on: windows-latest
@@ -41,9 +42,12 @@ jobs:
       - name: Log release context
         shell: powershell
         run: |
+          Write-Host "::group::Release Context"
           Write-Host "Source workflow run: ${{ github.event.workflow_run.id }}"
           Write-Host "Source SHA: ${{ github.event.workflow_run.head_sha }}"
           Write-Host "Triggered by branch: ${{ github.event.workflow_run.head_branch }}"
+          Write-Host "Runner: $env:RUNNER_OS"
+          Write-Host "::endgroup::"
 
       - name: Verify required build files
         shell: powershell
@@ -56,6 +60,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
+          Write-Host "::group::Build"
           pyinstaller `
             --distpath ".\bin" `
             --workpath ".\bin\build" `
@@ -66,25 +71,33 @@ jobs:
             --add-data ".\config.json;." `
             --add-data ".\config_example.json;." `
             FyShare.py
+          Write-Host "::endgroup::"
 
-      - name: Package binary
+      - name: Package build output
         shell: powershell
         run: |
-          if (-not (Test-Path -Path ".\bin\FyShare.exe" -PathType Leaf)) { throw "Missing built binary .\\bin\\FyShare.exe" }
-          Compress-Archive -Path ".\bin\FyShare.exe" -DestinationPath ".\bin\fyshare-win.zip"
+          if (-not (Test-Path -Path ".\bin\FyShare\FyShare.exe" -PathType Leaf)) { throw "Missing built binary .\\bin\\FyShare\\FyShare.exe" }
+          Compress-Archive -Path ".\bin\FyShare\*" -DestinationPath ".\bin\fyshare-win-64-shared.zip"
 
-      - name: Upload release artifact snapshot
+      - name: Log packaged artifact details
+        shell: powershell
+        run: |
+          Write-Host "::group::Artifacts"
+          Get-ChildItem -Path .\bin | Format-Table Name, Length, LastWriteTime -AutoSize
+          Write-Host "::endgroup::"
+
+      - name: Upload artifact snapshot
         uses: actions/upload-artifact@v4
         with:
-          name: fyshare-win
-          path: bin/fyshare-win.zip
+          name: fyshare-win-64-shared
+          path: bin/fyshare-win-64-shared.zip
           if-no-files-found: error
 
       - name: Publish release asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          files: bin/fyshare-win.zip
+          files: bin/fyshare-win-64-shared.zip
           fail_on_unmatched_files: true
           overwrite_files: true
         env:

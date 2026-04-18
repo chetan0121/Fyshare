@@ -1,5 +1,7 @@
 name: CI
 
+run-name: CI (${{ github.ref_name }} @ ${{ github.sha }})
+
 on:
   push:
     branches: [main, dev]
@@ -11,6 +13,7 @@ permissions:
 
 jobs:
   test:
+    # Run the same smoke check across supported Python versions.
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -31,33 +34,38 @@ jobs:
 
       - name: Display Python info
         run: |
+          echo "::group::Environment"
           python -V
           pip -V
           echo "Runner: $RUNNER_OS"
           echo "Ref: $GITHUB_REF"
           echo "SHA: $GITHUB_SHA"
+          echo "::endgroup::"
 
-      - name: Startup Smoke Test (FyShare.py)
+      - name: Run startup smoke test
         id: smoke
         env:
           FYSHARE_CI: "1"
         run: |
           set -euo pipefail
+
+          echo "::group::Start FyShare"
           python FyShare.py > fyshare-startup.log 2>&1 &
           APP_PID="$!"
           sleep 5
 
           if kill -0 "$APP_PID" 2>/dev/null; then
             echo "passed=true" >> "$GITHUB_OUTPUT"
-            echo "FyShare OK"
+            echo "Startup status: OK"
             STATUS=0
           else
             echo "passed=false" >> "$GITHUB_OUTPUT"
-            echo "FyShare Failed"
+            echo "Startup status: FAILED"
             echo "--- Startup log tail ---"
             tail -n 120 fyshare-startup.log || true
             STATUS=1
           fi
+          echo "::endgroup::"
 
           kill "$APP_PID" 2>/dev/null || true
           wait "$APP_PID" 2>/dev/null || true
@@ -65,7 +73,7 @@ jobs:
 
           exit $STATUS
 
-      - name: Upload startup log on failure
+      - name: Upload startup log artifact on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
