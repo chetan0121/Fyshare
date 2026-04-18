@@ -123,7 +123,7 @@ class FileState:
         else:
             raise StateError(f"Invalid option. Choose 1, 2, or 3.")
         
-        # Validate path
+        # Validate path is directory
         path = helper.refine_path(path_str)
         helper.is_valid_dir(path)
         

@@ -48,7 +48,11 @@ def get_local_ip_unix() -> str:
             ip = _parse_ip_output(result.stdout)
             return ip
     except PermissionError:
-        S.Style.print("\nPermission denied: Unable to run \'ip addr show\' command", S.TextStyle.BOLD, S.Color.YELLOW)
+        S.Style.print(
+            "\nPermission denied: Unable to run \'ip addr show\' command", 
+            S.TextStyle.BOLD, 
+            S.Color.YELLOW
+        )
     except KeyboardInterrupt:
         raise
     except Exception:
@@ -63,7 +67,11 @@ def get_local_ip_unix() -> str:
             if ip:
                 return ip
     except PermissionError:
-        S.Style.print("\nPermission denied: Unable to run \'ifconfig\' command", S.TextStyle.BOLD, S.Color.YELLOW)
+        S.Style.print(
+            "\nPermission denied: Unable to run \'ifconfig\' command", 
+            S.TextStyle.BOLD, 
+            S.Color.YELLOW
+        )
     except KeyboardInterrupt:
         raise
     except Exception:

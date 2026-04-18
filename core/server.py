@@ -43,17 +43,15 @@ def shutdown_server(msg="Shutdown the Server"):
 def run_server():
     # Make Alias of server
     S = ServerState
-    server  = S.server
+    server = S.server
     session_manager = S.session_manager
 
     # Check is server and session_manager initialized
     if not server or not session_manager:
-        raise AttributeError("State Error: SessionManager instance not found.")
-
-    # Set refresh time
-    server.timeout = FileState.CONFIG["refresh_time_s"]
+        raise AttributeError("State Error: ServerState isn't initialized properly.")
 
     # Constant configs
+    server.timeout = FileState.CONFIG["refresh_time_s"]
     cleanup_time_s = FileState.CONFIG['cleanup_timeout_m'] * 60
     idle_timeout_m = FileState.CONFIG['idle_timeout_m']
     idle_timeout_s = idle_timeout_m * 60
@@ -71,9 +69,7 @@ def run_server():
         session_manager.clean_expired_sessions()
 
         # Auto update credentials after cleanUp time
-        if S.last_credential_update_ts is None:
-            S.last_credential_update_ts = current_time
-        elif current_time - S.last_credential_update_ts > cleanup_time_s:
+        if current_time - S.last_credential_update_ts >= cleanup_time_s:
             credentials.generate_credentials("Old Credentials expired!")
 
         # Handle inactivity timeout

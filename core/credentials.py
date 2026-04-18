@@ -1,5 +1,6 @@
 import string
 import secrets
+import time
 from .utils import logger
 from .utils.style_manager import *
 from .state import FileState, ServerState
@@ -60,8 +61,8 @@ def _log_credentials(msg: str):
 
 def generate_credentials(message = str("")):
     with ServerState.credentials_lock:
-        # Handle stat and generate new OTP
-        ServerState.last_credential_update_ts = None
+        # Record rotation time and generate a new OTP
+        ServerState.last_credential_update_ts = time.monotonic()
         ServerState.otp = generate_otp()
 
         # Printing

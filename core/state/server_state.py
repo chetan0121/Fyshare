@@ -1,5 +1,6 @@
 import threading
 import socket
+import time
 from typing import Optional
 from http.server import ThreadingHTTPServer
 
@@ -41,12 +42,13 @@ class ServerState:
         if cls.is_initialized:
             return
         
-        cls.is_initialized = True
         cls.credentials_lock = threading.Lock()
         cls.session_manager = SessionManager()
         cls.local_ip = cls._fetch_ip()
         cls.port = cls._select_port()
         cls.server_url = cls._get_server_url()
+        cls.last_credential_update_ts = time.monotonic()
+        cls.is_initialized = True
         
     @staticmethod
     def _fetch_ip() -> str:
