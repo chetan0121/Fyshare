@@ -1,8 +1,8 @@
-name: Build and Release Linux-x64 Binary
+name: Release Linux x64
 
 on:
   workflow_run:
-    workflows: ["CI - Python Compatibility"]
+    workflows: ["CI"]
     types: [completed]
 
 permissions:

@@ -1,8 +1,8 @@
-name: Build and Release Windows 64-bit Binary
+name: Release Windows x64
 
 on:
   workflow_run:
-    workflows: ["CI - Python Compatibility"]
+    workflows: ["CI"]
     types: [completed]
 
 permissions:

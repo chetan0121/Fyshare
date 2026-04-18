@@ -1,4 +1,4 @@
-name: CI - Python Compatibility
+name: CI
 
 on:
   push:
@@ -22,24 +22,20 @@ jobs:
           - "3.14"
 
     steps:
-      # Checkout source code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install chosen Python version
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      # Debug info (concise)
       - name: Display Python info
         run: |
           python -V
           pip -V
 
-      # Smoke test
       - name: Startup Smoke Test (FyShare.py)
         id: smoke
         env:
