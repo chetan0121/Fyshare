@@ -132,10 +132,34 @@ body {
         transform: translateY(3px);
     }
 
-h1 {
+#go-home {
+    height: 100%;
+    width: auto;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
     margin: 0;
-    font-size: 1.5em;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background-color: rgba(62, 171, 255, 0.2);
+    transition: all 0.2s ease-out;
+}
+    #go-home:hover {
+        background-color: rgba(0, 60, 255, 0.2);
+    }
+
+.header h1 {
+    margin: 0;
+    color: white;
+    font-size: 1.4em;
     font-weight: 500;
+}
+
+.header-logo {
+    height: 32px;
+    width: 32px;
+    object-fit: contain;
 }
 
 .breadcrumb {
