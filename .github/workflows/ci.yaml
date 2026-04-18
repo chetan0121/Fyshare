@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout repository
@@ -23,6 +23,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
 
       - name: Display Python info
         run: |
@@ -30,6 +31,7 @@ jobs:
           pip -V
 
       - name: Startup Smoke Test (FyShare.py)
+        id: smoke
         env:
           FYSHARE_CI: "1"
         run: |
@@ -38,10 +40,12 @@ jobs:
           sleep 5
 
           if ps -p $APP_PID > /dev/null; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
             echo "FyShare OK"
             STATUS=0
           else
-            echo "FyShare FAILED"
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+            echo "FyShare Failed"
             STATUS=1
           fi
 
