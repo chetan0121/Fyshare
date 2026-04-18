@@ -28,9 +28,14 @@ class ResponseHandler:
         headers: Optional[Sequence[tuple[str, str]]] = None,
         send_security_headers = True
     ) -> None:
-        """Send status and headers. Optionally include security headers.
+        """Send response status and headers, then terminate header section.
 
-        `headers` should be an iterable of (name, value) pairs.
+        Args:
+            handler: Active request handler.
+            status: HTTP status code.
+            msg: Optional custom reason phrase.
+            headers: Extra `(name, value)` header pairs.
+            send_security_headers: Whether to include default security headers.
         """
         handler.send_response(status, msg)
 
@@ -113,24 +118,32 @@ class ResponseHandler:
         content_type: str = "text/plain",
         content: Optional[Union[str, bytes]] = None,
         file_path: Optional[Union[str, Path]] = None,
-        chunk_size: float = 32.0,
+        chunk_size: float = 64.0,
         extra_headers: Optional[Sequence[tuple[str, str]]] = None,
+        logging: bool = False
     ) -> None:
-        """Send headers and body from memory or by streaming a file.
+        """Send an HTTP response from in-memory content or a file path.
 
-        - If `content` is provided (str/bytes) it is sent in chunks.
-        - Otherwise `file_path` is streamed from disk.
+        Args:
+            handler: Active request handler.
+            status: HTTP status code.
+            message: Optional custom reason phrase.
+            content_type: MIME type for `Content-Type` header.
+            content: Response body bytes/string. Takes precedence over `file_path`.
+            file_path: File to stream when `content` is not provided.
+            chunk_size: Transfer chunk size in KB; must be greater than 0.
+            extra_headers: Additional headers to append.
+            logging: Log completed/canceled transfers when True.
 
-        `chunk_size` is in kilobytes (KB) and must be > 0.
-        
-        - raise ValueError if chunk_size <= 0 OR  no content is provided
+        Raises:
+            ValueError: If `chunk_size <= 0` or neither content nor file data exists.
         """
         if chunk_size <= 0:
             raise ValueError("chunk_size must be a positive integer")
 
         # Convert to bytes
         chunk = int(chunk_size * 1024)  
-
+        
         # Check if file exist
         path = Path(file_path) if file_path else None
         is_path = path.is_file() if path else False
@@ -170,6 +183,11 @@ class ResponseHandler:
         # Add any extra headers provided
         if extra_headers:
             response_headers.extend(extra_headers)
+
+        # Variables
+        bytes_sent = 0
+        request_path = str(path) if is_path else str(getattr(handler, "path", ""))
+        client_ip = handler.client_address[0]
         
         try:
             # Send headers
@@ -184,8 +202,25 @@ class ResponseHandler:
                 with path.open('rb') as f:
                     while (data := f.read(chunk)):
                         handler.wfile.write(data)
+                        bytes_sent += len(data)
             else:
                 for i in range(0, file_size, chunk):
-                    handler.wfile.write(body[i:i + chunk])
+                    part = body[i:i + chunk]
+                    handler.wfile.write(part)
+                    bytes_sent += len(part)
+
+            if logging:
+                logger.emit_info(
+                    "File transfer completed",
+                    f"IP: {client_ip}",
+                    f"Path: \"{request_path}\"",
+                    f"Bytes sent: {bytes_sent}"
+                )
         except (BrokenPipeError, ConnectionError):
-            logger.emit_info("Client disconnected during http-response")
+            if logging:
+                logger.emit_info(
+                    "File transfer canceled",
+                    f"IP: {client_ip}",
+                    f"Path: \"{request_path}\"",
+                    f"Bytes sent: {bytes_sent}"
+                )
