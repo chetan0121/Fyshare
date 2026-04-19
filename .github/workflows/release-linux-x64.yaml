@@ -63,6 +63,7 @@ jobs:
             --distpath ./bin \
             --workpath ./bin/build \
             --specpath ./bin \
+            --contents-directory . \
             --add-data "../static:static" \
             --add-data "../templates:templates" \
             --add-data "../config.json:." \
@@ -74,9 +75,15 @@ jobs:
       - name: Package build output
         run: |
           test -d ./bin/FyShare
+          test -f ./bin/FyShare/config.json
+          test -f ./bin/FyShare/config_example.json
+          test -d ./bin/FyShare/static
+          test -d ./bin/FyShare/templates
           test -f ./README.md
+          test -f ./LICENSE
           test -f ./static/images/fyshare_logo.png
           cp ./README.md ./bin/FyShare/README.md
+          cp ./LICENSE ./bin/FyShare/LICENSE
           cp ./static/images/fyshare_logo.png ./bin/FyShare/fyshare_logo.png
           cd bin/FyShare
           zip -r ../fyshare-linux-x64-shared.zip .

@@ -66,6 +66,7 @@ jobs:
             --distpath ".\bin" `
             --workpath ".\bin\build" `
             --specpath ".\bin" `
+            --contents-directory "." `
             --icon="..\static\images\fyshare_logo_256x256.ico" `
             --add-data "..\static;static" `
             --add-data "..\templates;templates" `
@@ -79,9 +80,15 @@ jobs:
         shell: powershell
         run: |
           if (-not (Test-Path -Path ".\bin\FyShare\FyShare.exe" -PathType Leaf)) { throw "Missing built binary .\\bin\\FyShare\\FyShare.exe" }
+          if (-not (Test-Path -Path ".\bin\FyShare\config.json" -PathType Leaf)) { throw "Missing .\\bin\\FyShare\\config.json" }
+          if (-not (Test-Path -Path ".\bin\FyShare\config_example.json" -PathType Leaf)) { throw "Missing .\\bin\\FyShare\\config_example.json" }
+          if (-not (Test-Path -Path ".\bin\FyShare\static" -PathType Container)) { throw "Missing .\\bin\\FyShare\\static" }
+          if (-not (Test-Path -Path ".\bin\FyShare\templates" -PathType Container)) { throw "Missing .\\bin\\FyShare\\templates" }
           if (-not (Test-Path -Path ".\README.md" -PathType Leaf)) { throw "Missing README.md" }
+          if (-not (Test-Path -Path ".\LICENSE" -PathType Leaf)) { throw "Missing LICENSE" }
           if (-not (Test-Path -Path ".\static\images\fyshare_logo.png" -PathType Leaf)) { throw "Missing static\\images\\fyshare_logo.png" }
           Copy-Item -Path ".\README.md" -Destination ".\bin\FyShare\README.md" -Force
+          Copy-Item -Path ".\LICENSE" -Destination ".\bin\FyShare\LICENSE" -Force
           Copy-Item -Path ".\static\images\fyshare_logo.png" -Destination ".\bin\FyShare\fyshare_logo.png" -Force
           Compress-Archive -Path ".\bin\FyShare\*" -DestinationPath ".\bin\fyshare-win-x64-shared.zip"
 
