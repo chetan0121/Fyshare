@@ -1,8 +1,9 @@
 name: Release Linux x64
 
-run-name: Release Linux x64 (${{ github.event.workflow_run.head_sha }})
+run-name: Release Linux x64 (${{ github.event.workflow_run.head_sha || github.sha }})
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -16,8 +17,8 @@ concurrency:
 
 jobs:
   build:
-    # Publish only for successful CI runs originating from pushes to main.
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push' }}
+    # Allow manual runs from Actions tab, and auto-publish only for successful CI runs from pushes to main.
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push') }}
 
     runs-on: ubuntu-22.04
     timeout-minutes: 20
@@ -26,7 +27,7 @@ jobs:
       - name: Checkout correct commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -73,6 +74,10 @@ jobs:
       - name: Package build output
         run: |
           test -d ./bin/FyShare
+          test -f ./README.md
+          test -f ./static/images/fyshare_logo.png
+          cp ./README.md ./bin/FyShare/README.md
+          cp ./static/images/fyshare_logo.png ./bin/FyShare/fyshare_logo.png
           cd bin/FyShare
           zip -r ../fyshare-linux-x64-shared.zip .
           cd ../..

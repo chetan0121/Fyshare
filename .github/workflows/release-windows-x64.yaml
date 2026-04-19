@@ -1,8 +1,9 @@
 name: Release Windows x64
 
-run-name: Release Windows x64 (${{ github.event.workflow_run.head_sha }})
+run-name: Release Windows x64 (${{ github.event.workflow_run.head_sha || github.sha }})
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -16,8 +17,8 @@ concurrency:
 
 jobs:
   build:
-    # Publish only for successful CI runs originating from pushes to main.
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push' }}
+    # Allow manual runs from Actions tab, and auto-publish only for successful CI runs from pushes to main.
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push') }}
 
     runs-on: windows-latest
     timeout-minutes: 20
@@ -26,7 +27,7 @@ jobs:
       - name: Checkout correct commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -65,7 +66,7 @@ jobs:
             --distpath ".\bin" `
             --workpath ".\bin\build" `
             --specpath ".\bin" `
-            --icon="..\static\images\fyshare_logo_256x256.ico.ico" `
+            --icon="..\static\images\fyshare_logo_256x256.ico" `
             --add-data "..\static;static" `
             --add-data "..\templates;templates" `
             --add-data "..\config.json;." `
@@ -78,6 +79,10 @@ jobs:
         shell: powershell
         run: |
           if (-not (Test-Path -Path ".\bin\FyShare\FyShare.exe" -PathType Leaf)) { throw "Missing built binary .\\bin\\FyShare\\FyShare.exe" }
+          if (-not (Test-Path -Path ".\README.md" -PathType Leaf)) { throw "Missing README.md" }
+          if (-not (Test-Path -Path ".\static\images\fyshare_logo.png" -PathType Leaf)) { throw "Missing static\\images\\fyshare_logo.png" }
+          Copy-Item -Path ".\README.md" -Destination ".\bin\FyShare\README.md" -Force
+          Copy-Item -Path ".\static\images\fyshare_logo.png" -Destination ".\bin\FyShare\fyshare_logo.png" -Force
           Compress-Archive -Path ".\bin\FyShare\*" -DestinationPath ".\bin\fyshare-win-x64-shared.zip"
 
       - name: Log packaged artifact details
