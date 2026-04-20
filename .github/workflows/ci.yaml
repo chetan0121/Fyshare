@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     # Run the same smoke check across supported Python versions.
@@ -52,19 +56,26 @@ jobs:
           echo "::group::Start FyShare"
           python FyShare.py > fyshare-startup.log 2>&1 &
           APP_PID="$!"
-          sleep 5
 
-          if kill -0 "$APP_PID" 2>/dev/null; then
-            echo "passed=true" >> "$GITHUB_OUTPUT"
-            echo "Startup status: OK"
-            STATUS=0
-          else
-            echo "passed=false" >> "$GITHUB_OUTPUT"
-            echo "Startup status: FAILED"
-            echo "--- Startup log tail ---"
-            tail -n 120 fyshare-startup.log || true
-            STATUS=1
-          fi
+          STATUS=1
+          for attempt in $(seq 1 5); do
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              echo "passed=false" >> "$GITHUB_OUTPUT"
+              echo "Startup status: FAILED"
+              echo "--- Startup log tail ---"
+              tail -n 120 fyshare-startup.log || true
+              break
+            fi
+
+            if [ "$attempt" -eq 5 ]; then
+              echo "passed=true" >> "$GITHUB_OUTPUT"
+              echo "Startup status: OK"
+              STATUS=0
+              break
+            fi
+
+            sleep 1
+          done
           echo "::endgroup::"
 
           kill "$APP_PID" 2>/dev/null || true
@@ -80,3 +91,4 @@ jobs:
           name: fyshare-startup-log-${{ matrix.python-version }}
           path: fyshare-startup.log
           if-no-files-found: ignore
+          compression-level: 0
