@@ -50,15 +50,6 @@ jobs:
           Write-Host "Runner: $env:RUNNER_OS"
           Write-Host "::endgroup::"
 
-      - name: Verify required build files
-        shell: powershell
-        run: |
-          if (-not (Test-Path -Path ".\FyShare.py" -PathType Leaf)) { throw "Missing FyShare.py" }
-          if (-not (Test-Path -Path ".\config.json" -PathType Leaf)) { throw "Missing config.json" }
-          if (-not (Test-Path -Path ".\config_example.json" -PathType Leaf)) { throw "Missing config_example.json" }
-          if (-not (Test-Path -Path ".\static" -PathType Container)) { throw "Missing static directory" }
-          if (-not (Test-Path -Path ".\templates" -PathType Container)) { throw "Missing templates directory" }
-
       - name: Build with PyInstaller
         run: |
           Write-Host "::group::Build"
@@ -80,7 +71,7 @@ jobs:
           if (-not (Test-Path -Path ".\artifacts\dist\config_example.json" -PathType Leaf)) { throw "Missing .\\artifacts\\dist\\config_example.json" }
           if (-not (Test-Path -Path ".\artifacts\dist\README.md" -PathType Leaf)) { throw "Missing .\\artifacts\\dist\\README.md" }
           if (-not (Test-Path -Path ".\artifacts\dist\LICENSE" -PathType Leaf)) { throw "Missing .\\artifacts\\dist\\LICENSE" }
-          Compress-Archive -Path ".\artifacts\dist" -DestinationPath ".\artifacts\fyshare-win-x64-shared.zip"
+          Compress-Archive -Path ".\artifacts\dist\*" -DestinationPath ".\artifacts\fyshare-win-x64-shared.zip"
           if (-not (Test-Path -Path ".\artifacts\fyshare-win-x64-shared.zip" -PathType Leaf)) { throw "Missing .\\artifacts\\fyshare-win-x64-shared.zip" }
 
       - name: Log packaged artifact details

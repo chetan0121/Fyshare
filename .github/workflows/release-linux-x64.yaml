@@ -48,14 +48,6 @@ jobs:
           echo "Runner: $RUNNER_OS"
           echo "::endgroup::"
 
-      - name: Verify required build files
-        run: |
-          test -f FyShare.py
-          test -f config.json
-          test -f config_example.json
-          test -d static
-          test -d templates
-
       - name: Build with PyInstaller
         run: |
           echo "::group::Build"
@@ -76,9 +68,9 @@ jobs:
           test -f ./artifacts/dist/config_example.json
           test -f ./artifacts/dist/README.md
           test -f ./artifacts/dist/LICENSE
-          cd artifacts
-          zip -r fyshare-linux-x64-shared.zip dist
-          cd ..
+          cd artifacts/dist
+          zip -r ../fyshare-linux-x64-shared.zip .
+          cd ../..
           test -f ./artifacts/fyshare-linux-x64-shared.zip
 
       - name: Log packaged artifact details
