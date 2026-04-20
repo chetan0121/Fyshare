@@ -2,18 +2,28 @@
 FyShare : Secure one-time file sharing server
 """
 import os
+import sys
 from pathlib import Path
 from core import server, credentials
 from core import load_config, backup_config
 from core.state import FileState, ServerState, StateError
 from core.utils import logger, helper
 
+
+def get_app_root() -> Path:
+    if getattr(sys, 'frozen', False):
+        # Running as Compiled (using PyInstaller)
+        return Path(sys.executable).parent
+    else:
+        # Running as Python Script
+        return Path(__file__).resolve().parent
+
 def main() -> None:
     # True if run is from github CI
     FileState.ci_mod = os.getenv("FYSHARE_CI", "0") == "1"
 
     # Get current folder path
-    FileState.base_dir = Path(__file__).parent
+    FileState.base_dir = get_app_root()
     this_dir = str(FileState.base_dir)
 
     # Setup logger
@@ -67,6 +77,7 @@ def main() -> None:
     except Exception as e:
         logger.emit_error(f"Server error: {e}")
         server.shutdown_server(f"Server terminated due to error")
+
 
 # Entry point
 if __name__ == "__main__":
