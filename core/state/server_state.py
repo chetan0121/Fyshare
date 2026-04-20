@@ -1,3 +1,5 @@
+"""Server runtime state used to coordinate startup, credentials, and sessions."""
+
 import threading
 import socket
 import time
@@ -11,6 +13,12 @@ from .file_state import FileState
 
 
 class ServerState:
+    """Shared runtime state for the server process.
+
+    Tracks the HTTP server instance, connection details, credential rotation
+    timing, and the session manager used by request handlers.
+    """
+
     # Server
     server: Optional[ThreadingHTTPServer] = None
     is_running = False
@@ -34,10 +42,13 @@ class ServerState:
 
     @classmethod
     def init_server_state(cls) -> None:
-        """Initialize server state: local IP, port, locks, and managers.
+        """Initialize server state fields used by startup and request handling.
         
-        Detects local network IP, selects an available port from config or fallback range.
-        Must run before server.init_server().
+        Detects local network IP, selects an available port from config or
+        fallback range, initializes locks/managers, and updates credential
+        rotation timestamp.
+
+        Must run before `server.init_server()`.
         """
         if cls.is_initialized:
             return
@@ -75,8 +86,9 @@ class ServerState:
     def _select_port(cls) -> int:
         """Select an available port from config or fallback range.
         
-        Returns config port if valid and available; otherwise picks a random
-        available port from 1500-9499. Raises if no port is available.
+        Returns config port if valid and available; otherwise scans ports from
+        1500 to 9499 until it finds the first bindable port. Raises if no port
+        is available.
         """
         ip = cls.local_ip
         
@@ -100,7 +112,11 @@ class ServerState:
         )
         
     @classmethod
-    def _get_server_url(cls):
+    def _get_server_url(cls) -> str:
+        """Build the base URL used in credentials and startup output.
+
+        When bound to `0.0.0.0`, uses the detected local LAN IP for display.
+        """
         ip = cls.local_ip
         if ip == "0.0.0.0":
             ip = ip_resolver.get_local_ip()

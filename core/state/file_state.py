@@ -1,4 +1,4 @@
-"""File and template related state management for FyShare-server.
+"""File and template state management for the FyShare server.
 
 Handles initialization of:
   - Root directory for file serving
@@ -29,7 +29,7 @@ class FileState:
         config_path: Path to config.json file.
         base_dir: Base directory of FyShare project.
         ci_mod: Flag for CI/CD environments (skips user prompts).
-        OPTIONS: Tuple of (minutes, label) for session timeout choices.
+        OPTIONS: List of (minutes, label) pairs for session timeout choices.
     """
     
     # Directory and template paths
@@ -51,7 +51,7 @@ class FileState:
     # Environment flag (For github CI)
     ci_mod: bool = False
     
-    # Session timeout options (CONSTANT)
+    # Session timeout options (default values)
     OPTIONS: list[tuple[int, str]] = [
         (5, "5 minutes"),
         (15, "15 minutes"),
@@ -62,14 +62,18 @@ class FileState:
 
     @staticmethod
     def set_root_path() -> None:
-        """Setup and persist root directory for file serving.
+        """Set the root directory used for file serving.
         
-        Prompts user to select root directory (unless in CI mode),
-        and validates it is accessible and outside project folder, then
-        persists the choice to config if it's new.
+        Prompts user to select a root directory (unless in CI mode), validates
+        that the path is accessible and outside the project folder, and stores
+        the selected path in `ROOT_DIR`.
+
+        If option 3 (manual path) is chosen, the path is also persisted to
+        config.
         
         Raises:
-            StateError: If CONFIG not loaded, invalid input, or path validation fails.
+            StateError: If CONFIG is missing, input is invalid, or path
+                validation fails.
         """
         if not FileState.CONFIG:
             raise StateError("Config: cannot set root path, config not found")
@@ -158,6 +162,10 @@ class FileState:
         Loads login.html and fyshare.html from the specified directory,
         then injects session timeout options into login page.
         
+        Notes:
+            Sorts the shared `OPTIONS` list in place before rendering the
+            timeout selectors.
+        
         Args:
             path: Directory containing login.html and fyshare.html.
             
@@ -196,13 +204,18 @@ class FileState:
 
     @staticmethod
     def setup_static_dir(path: Union[str, Path]) -> None:
-        """Set and validate static assets directory.
+        """Set and validate the static assets directory.
         
         Args:
             path: Directory containing static assets (CSS, JS, images, etc.).
             
         Raises:
-            UtilityError: If path doesn't exist or is not readable.
+            helper.UtilityError: If the path does not exist, is not a directory,
+                or is not readable.
+
+        Notes:
+            Also updates the cached favicon path under the selected static
+            directory.
         """
         # Set static dir
         path = helper.refine_path(path)
