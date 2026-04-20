@@ -13,8 +13,7 @@ ENV/
 
 # Packaging
 build/
-dist/
-bin/
+artifacts/
 *.egg-info/
 *.egg
 
@@ -22,6 +21,7 @@ bin/
 logs
 *.log
 *.tmp
+*.temp
 temp/
 tmp/
 
