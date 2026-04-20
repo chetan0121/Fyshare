@@ -1,3 +1,5 @@
+"""Credential generation and display for server sessions and login."""
+
 import string
 import secrets
 import time
@@ -5,13 +7,37 @@ from .utils import logger
 from .utils.style_manager import *
 from .state import FileState, ServerState
 
-def generate_session_token(b_size:int = 32) -> str:
+def generate_session_token(b_size: int = 32) -> str:
+    """Generate a cryptographically secure session token.
+    
+    Args:
+        b_size: Byte size of the random token (default 32 bytes = 64 hex chars).
+    
+    Returns:
+        Hex-encoded random token string.
+    """
     return secrets.token_hex(b_size)
 
-def generate_otp(length=6) -> str:
+def generate_otp(length: int = 6) -> str:
+    """Generate a random One-Time Password (OTP).
+    
+    Args:
+        length: Number of digits in the OTP (default 6).
+    
+    Returns:
+        Random numeric string of specified length.
+    """
     return ''.join(secrets.choice(string.digits) for _ in range(length))
 
-def _print_credentials(message: str):
+def _print_credentials(message: str) -> None:
+    """Display credentials and server info to console with styled formatting.
+    
+    Prints the server URL, serving directory, OTP, max users, and timeout settings.
+    Uses ANSI color styling for visual emphasis.
+    
+    Args:
+        message: Header message to display (e.g., 'New Server Started').
+    """
     root_dir = f"\"{FileState.ROOT_DIR}\""
     link = ServerState.server_url
     separator_line = str('-'*50)
@@ -32,7 +58,15 @@ def _print_credentials(message: str):
     
     Style.print(f"{separator_line}\n", TextStyle.BOLD)
 
-def _log_credentials(msg: str):
+def _log_credentials(msg: str) -> None:
+    """Log credentials and configuration to the log file.
+    
+    Records server configuration details (max users, timeouts, refresh interval)
+    to the persistent log file for audit purposes.
+    
+    Args:
+        msg: Reason for credential generation (e.g., 'Old credentials expired').
+    """
     reason = msg if msg else 'Not specified'
 
     data = {
@@ -59,7 +93,16 @@ def _log_credentials(msg: str):
     logger.log_info(sep_line, lvl_tag=False)
     logger.log_info("", lvl_tag=False)
 
-def generate_credentials(message = str("")):
+def generate_credentials(message: str = "") -> None:
+    """Generate and display new OTP credentials for the current session.
+    
+    Updates the server OTP, records rotation timestamp, and displays/logs
+    the new credentials with server configuration details. Thread-safe
+    using ServerState.credentials_lock.
+    
+    Args:
+        message: Optional reason for credential rotation (e.g., 'Manual reset').
+    """
     with ServerState.credentials_lock:
         # Record rotation time and generate a new OTP
         ServerState.last_credential_update_ts = time.monotonic()

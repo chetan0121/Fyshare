@@ -1,13 +1,30 @@
+"""Configuration loading, validation, and backup management."""
+
 from typing import Optional
 from .utils import helper, logger
 from .utils.style_manager import Style, Color, TextStyle
 from .state import FileState
 
-# Custom Exception
-class ConfigError(Exception): pass
+class ConfigError(Exception):
+    """Exception raised for configuration errors during loading or validation."""
+    pass
 
 def normalize_config(config: dict) -> dict:
-    """Normalize value types of config"""
+    """Normalize and type-cast raw config values.
+    
+    Converts raw JSON config values to their target types (int, float, str).
+    Uses keys from raw_config and maps them to normalized CONFIG keys.
+    
+    Args:
+        config: Raw configuration dictionary from JSON file.
+    
+    Returns:
+        Normalized dictionary with typed values and standard key names.
+    
+    Raises:
+        ConfigError: If a value cannot be converted to its target type (ValueError)
+            or if a required key is missing (KeyError).
+    """
     try:
         CONFIG = {
             # Custom Server IP
@@ -51,9 +68,17 @@ def normalize_config(config: dict) -> dict:
     return CONFIG
 
 def check_config(CONFIG: dict) -> None:
-    """
-    Validates config values
-    - IP and port configs will be validated in server-state handling, not here.
+    """Validate normalized config values for acceptable ranges and constraints.
+    
+    Note: IP and port configs are validated in server-state initialization,
+    not here. This function validates timeouts, user limits, and attempt counters.
+    
+    Args:
+        CONFIG: Normalized configuration dictionary.
+    
+    Raises:
+        ConfigError: If any config value is outside acceptable range or violates
+            inter-parameter constraints.
     """
     if CONFIG['max_users'] < 1 or CONFIG['max_users'] > 100:
         raise ConfigError("'max_users' must be a natural number from 1 to 100")
@@ -91,7 +116,15 @@ def check_config(CONFIG: dict) -> None:
 
 
 def load_config(config_path) -> Optional[dict]:
-    """Load config (Normalize, validate and return as dict)"""
+    """Load, normalize, and validate configuration file.
+    
+    Args:
+        config_path: Path to the configuration JSON file.
+    
+    Returns:
+        Normalized configuration dictionary, or None if loading/validation fails.
+        On error, logs the failure reason to the error logger.
+    """
     try:
         raw_config = helper.get_json(config_path)
         CONFIG = normalize_config(raw_config)
@@ -102,7 +135,19 @@ def load_config(config_path) -> Optional[dict]:
 
     return CONFIG
 
-def backup_config(file_name: str):
+def backup_config(file_name: str) -> bool:
+    """Restore default configuration after user confirmation.
+    
+    Prompts the user to confirm resetting to default config, then copies
+    the specified backup file over the current config.json. Handles user
+    cancellation and I/O errors gracefully with logging.
+    
+    Args:
+        file_name: Name of the backup/default config file to restore from.
+    
+    Returns:
+        True if restore succeeded, False otherwise (cancellation or error).
+    """
     config_path = FileState.config_path
     source_path = config_path.with_name(file_name)
 
@@ -130,8 +175,7 @@ def backup_config(file_name: str):
             return False
 
         logger.print_info(
-            f"Config-file '{config_path.name}' successfully restored "
-            f"from '{source_path.name}'",
+            f"Default server config restored successfully.",
             end="\n"
         )
         return True
@@ -139,7 +183,7 @@ def backup_config(file_name: str):
     elif opt in ("n", "no"):
         logger.print_info(
             "Reset cancelled by user, "
-            f"Current config '{config_path.name}' was kept unchanged.",
+            f"Current server config was kept unchanged.",
             end="\n"
         )
         logger.print_error("Failed to recover config: Reset cancelled")

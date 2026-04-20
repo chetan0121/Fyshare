@@ -1,3 +1,5 @@
+"""User session and login attempt tracking with cooldown and blocking."""
+
 import time
 import threading
 from typing import Optional
@@ -7,7 +9,19 @@ from .state import FileState
 
 
 class SessionManager:
-    def __init__(self):
+    """Manages active user sessions and tracks login attempts per IP.
+    
+    Provides thread-safe methods to store sessions (token -> IP + expiry),
+    track login attempts per IP with cooldown and blocking mechanisms,
+    and clean up expired sessions/attempts based on timestamps.
+    """
+    def __init__(self) -> None:
+        """Initialize empty session and attempt tracking dictionaries.
+        
+        Creates storage for active sessions (token -> IP/expiry) and
+        attempt tracking (IP -> attempt count/cooldown/block times).
+        Initializes thread lock for all access to these dictionaries.
+        """
         self.sessions: dict = {}      
         # {
         #     token: {
@@ -21,7 +35,7 @@ class SessionManager:
         #    ip: {
         #       'count': int, 
         #       'last_time': time, 
-        #       'cool_until: time', 
+        #       'cool_until': time, 
         #       'blocked_until': time
         #    }
         # }
@@ -29,7 +43,20 @@ class SessionManager:
         # Thread lock for every function 
         self.session_lock = threading.Lock()
 
-    def try_add_session(self, token, ip, expiry) -> bool:
+    def try_add_session(self, token: str, ip: str, expiry: float) -> bool:
+        """Attempt to add a new session if under max user limit.
+        
+        Thread-safe method that checks current session count against the
+        configured max_users limit before adding a new session.
+        
+        Args:
+            token: Unique session token.
+            ip: Client IP address.
+            expiry: Session expiry timestamp (monotonic time).
+        
+        Returns:
+            True if session was added, False if max user limit reached.
+        """
         with self.session_lock:
             session_count = len(self.sessions)
             if session_count >= FileState.CONFIG['max_users']:
@@ -38,17 +65,40 @@ class SessionManager:
             self.sessions[token] = {'ip': ip, 'expiry': expiry}
             return True
 
-    def remove_session(self, token) -> None:
+    def remove_session(self, token: str) -> None:
+        """Remove an active session by token.
+        
+        Thread-safe removal; does nothing if token doesn't exist.
+        
+        Args:
+            token: Session token to remove.
+        """
         with self.session_lock:
             if token in self.sessions:
                 del self.sessions[token]
 
-    def get_session(self, token) -> Optional[dict]:
+    def get_session(self, token: str) -> Optional[dict]:
+        """Retrieve session data by token (creates a copy).
+        
+        Thread-safe retrieval that returns a copy of the session dict
+        to prevent external modification of internal state.
+        
+        Args:
+            token: Session token to look up.
+        
+        Returns:
+            Dictionary with 'ip' and 'expiry' keys, or None if not found.
+        """
         with self.session_lock:
             session = self.sessions.get(token)
             return dict(session) if session else None
 
     def clean_expired_sessions(self) -> None:
+        """Remove all sessions with expiry time in the past.
+        
+        Compares session expiry against current monotonic time and logs
+        each removed session with its IP address.
+        """
         with self.session_lock:
             current_time = time.monotonic()
             expired = [
@@ -63,7 +113,17 @@ class SessionManager:
                 )
                 del self.sessions[token]
 
-    def update_attempts(self, ip, current_time) -> None:
+    def update_attempts(self, ip: str, current_time: float) -> None:
+        """Record a failed login attempt for an IP and apply cooldown/block rules.
+        
+        Increments attempt counter for the IP. If max_attempts threshold is reached,
+        sets a cooldown period. If max_total_attempts is reached, blocks the IP
+        entirely for block_time_m minutes. Logs transitions to cooldown/blocked states.
+        
+        Args:
+            ip: Client IP address.
+            current_time: Current monotonic timestamp.
+        """
         with self.session_lock:
             if ip not in self.attempts:
                 self.attempts[ip] = {'count': 0, 'last_time': 0}
@@ -90,15 +150,41 @@ class SessionManager:
                     f"IP: {ip}"
                 )
 
-    def is_inCool(self, ip, current_time) -> bool:
+    def is_inCool(self, ip: str, current_time: float) -> bool:
+        """Check if an IP is currently in cooldown period.
+        
+        Args:
+            ip: Client IP address.
+            current_time: Current monotonic timestamp.
+        
+        Returns:
+            True if IP has a cooldown period and current_time is before cool_until.
+        """
         with self.session_lock:
             return ip in self.attempts and self.attempts[ip].get('cool_until', 0) > current_time
         
-    def is_blocked(self, ip, current_time) -> bool:
+    def is_blocked(self, ip: str, current_time: float) -> bool:
+        """Check if an IP is currently blocked due to excessive attempts.
+        
+        Args:
+            ip: Client IP address.
+            current_time: Current monotonic timestamp.
+        
+        Returns:
+            True if IP has a block period and current_time is before blocked_until.
+        """
         with self.session_lock:
             return ip in self.attempts and self.attempts[ip].get('blocked_until', 0) > current_time
 
     def clean_expired_attempts(self) -> None:
+        """Remove IPs that have completed their block period or timed out.
+        
+        Removes IPs from attempt tracking if:
+        - They have completed their block period (blocked_until timestamp passed), or
+        - Their last attempt was older than cleanup_timeout_m minutes.
+        
+        Logs each IP as it transitions from blocked to unblocked state.
+        """
         with self.session_lock:
             cleanup_timeout_s = FileState.CONFIG['cleanup_timeout_m']*60
             current_time = time.monotonic()

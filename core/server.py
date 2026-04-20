@@ -1,3 +1,5 @@
+"""HTTP server initialization, management, and request handling loop."""
+
 import time
 import http.server as http_server
 from . import credentials
@@ -6,13 +8,21 @@ from .state import ServerState, FileState
 from .handlers.file_handler import FileHandler
 
 
-class ServerError(Exception): pass
+class ServerError(Exception):
+    """Exception raised for server initialization or runtime errors."""
+    pass
 
-def init_server():
-    """
-    Initialize server
-    - Create and set instance of ThreadingHTTPServer with Custom Filehandler
-    Note: Run this only after -> state.init_server_state()
+def init_server() -> None:
+    """Create and bind the HTTP server to configured IP and port.
+    
+    Initializes a ThreadingHTTPServer with the FileHandler to serve requests.
+    Must be called after state.init_server_state() to ensure ServerState
+    is properly initialized.
+    
+    Raises:
+        ValueError: If ServerState is not initialized.
+        RuntimeError: If the server cannot bind to the configured IP:port
+            (port already in use or permission denied).
     """
     if not ServerState.is_initialized:
         raise ValueError("State Error: Server state is not initialized yet")
@@ -26,7 +36,16 @@ def init_server():
             f"Bind Error: Failed to bind {ip}:{port}"
         )
         
-def shutdown_server(msg="Shutdown the Server"):
+def shutdown_server(msg: str = "Shutdown the Server") -> None:
+    """Gracefully shut down the HTTP server.
+    
+    Sets is_running flag to False, closes the server socket, and logs
+    the shutdown message. Handles exceptions during shutdown without
+    propagating them.
+    
+    Args:
+        msg: Shutdown reason message to display and log.
+    """
     ServerState.is_running = False
     if ServerState.server:
         try:
@@ -40,7 +59,17 @@ def shutdown_server(msg="Shutdown the Server"):
     logger.print_info(f"- {msg}", lvl_tag=False, prefix="\n\n")
     logger.log_info(msg, end=f"\n{'='*100}")
 
-def run_server():
+def run_server() -> None:
+    """Run the main server loop handling requests and managing timeouts.
+    
+    Continuously processes incoming client requests, performs session/attempt
+    cleanup, rotates credentials on schedule, and auto-shuts down after the
+    configured idle timeout period. Terminates when ServerState.is_running
+    is set to False.
+    
+    Raises:
+        AttributeError: If ServerState or FileState is not properly initialized.
+    """
     # Make Alias of server
     S = ServerState
     server = S.server
