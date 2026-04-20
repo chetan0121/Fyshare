@@ -81,20 +81,30 @@ class Style:
 
     @staticmethod
     def _to_escape(codes: Optional[list[int]]) -> str:
-        """Convert numbers to ANSI escape code sequence."""
+        """Convert a list of ANSI codes to an escape sequence string.
+        
+        Args:
+            codes: List of ANSI code integers, or None.
+        
+        Returns:
+            ANSI escape sequence (e.g., '\033[31;1m'), or empty string if codes is None/empty.
+        """
         if not codes:
             return ""
         return f"{Style.ESC}{';'.join(str(c) for c in codes)}m"
     
     @staticmethod
     def _resolve(codes: Union[list, tuple, set]) -> Optional[list[int]]:
-        """Resolve ANSI codes and classify into colors, backgrounds, and styles.
+        """Resolve and classify ANSI codes into colors, backgrounds, and styles.
+        
+        Applies brightness transformations (adding 60 to color codes) when
+        BRIGHT or BRIGHT_BG flags are set.
         
         Args:
             codes: Sequence of integers or objects representing ANSI codes.
         
         Returns:
-            Sorted list of final ANSI codes, or None if empty.
+            List of final ANSI codes ready for escape sequence, or None if empty.
         """
         if not codes:
             return None
@@ -141,7 +151,14 @@ class Style:
     
     @staticmethod
     def strip(text: str) -> str:
-        """Remove all ANSI escape codes from text."""
+        """Remove all ANSI escape codes from text.
+        
+        Args:
+            text: Text possibly containing ANSI codes.
+        
+        Returns:
+            Text with all escape sequences removed.
+        """
         if not text:
             return ""
         return Style._VALID_ANSI.sub('', text)

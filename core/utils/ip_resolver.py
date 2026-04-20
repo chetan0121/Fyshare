@@ -81,13 +81,19 @@ def get_local_ip_unix() -> str:
 
 
 class _IPManager:
-    """Simple class to score the ip and store the best needed one"""
+    """Score and track the best matching IP address by interface priority."""
     def __init__(self, priority_prefixes):
         self.prior_ip = ""
         self.max_points = 0
         self.prefixes = priority_prefixes
 
-    def add_ip(self, new_ip: str, iface: str):
+    def add_ip(self, new_ip: str, iface: str) -> None:
+        """Track an IP if its interface has higher priority than the current best.
+        
+        Args:
+            new_ip: IP address to consider.
+            iface: Interface name to score against priorities.
+        """
         score = 0
         for i, prefix in enumerate(self.prefixes):
             if iface.startswith(prefix):
@@ -159,16 +165,16 @@ def _parse_ifconfig_output(output: str) -> str:
     return ip_manager.prior_ip
 
 def is_hostable_ipv4(ip: str) -> bool:
-    """Return True if the given string is a usable IPv4 address for hosting LAN server.
-
-    Return false if any of the following is true:
-    - param ip is empty string or not exactly four decimal octets.
-    - Octet is not in the range 0-255 (8-bit unsigned int)
-    - Loopback or link-local ip-address (127.x.x.x or 169.254.x.x).
-    - Unspecified address (0.x.x.x).
-    - Address in multicast/reserved range (224.x.x.x through 255.x.x.x).
-
-    :param ip: IPv4 address as a string.
+    """Check if a string is a usable IPv4 address for hosting a LAN server.
+    
+    Returns False for loopback (127.x.x.x), link-local (169.254.x.x),
+    unspecified (0.x.x.x), or reserved/multicast (224.x.x.x-255.x.x.x) ranges.
+    
+    Args:
+        ip: IPv4 address as a string.
+    
+    Returns:
+        True if the address is valid and usable for LAN hosting.
     """
     ip = ip.strip()
     
@@ -179,6 +185,14 @@ def is_hostable_ipv4(ip: str) -> bool:
     return is_valid_ipv4(ip)
     
 def is_valid_ipv4(ip: str) -> bool:
+    """Check if a string is a valid IPv4 address.
+    
+    Args:
+        ip: IPv4 address as a string (e.g., '192.168.1.1').
+    
+    Returns:
+        True if the address has four octets in range 0-255.
+    """
     # Verify four decimal octets
     parts = ip.split('.')
     if len(parts) != 4:

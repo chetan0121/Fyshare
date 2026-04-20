@@ -3,10 +3,23 @@ import os
 from typing import Callable, Optional, Union
 from pathlib import Path
 
-class UtilityError(Exception): pass
+class UtilityError(Exception):
+    """Exception raised for utility function errors."""
+    pass
 
-# Refine path
 def refine_path(path: Union[str, Path], resolve: bool = True) -> Path:
+    """Normalize and optionally resolve a path string.
+    
+    Args:
+        path: Path string or Path object to normalize.
+        resolve: If True, resolve to absolute path; otherwise just normalize.
+    
+    Returns:
+        Normalized Path object.
+    
+    Raises:
+        UtilityError: If path is None or empty.
+    """
     if path is None:
         raise UtilityError("Path cannot be None")
 
@@ -21,15 +34,14 @@ def refine_path(path: Union[str, Path], resolve: bool = True) -> Path:
 
     return final_path    
 
-# Is Integer
 def try_parse_int(txt: str) -> Optional[int]:
-    """
-    Attempts to parse a string as an integer.
+    """Attempt to parse a string as an integer.
     
-    :param txt: The string to parse.
+    Args:
+        txt: The string to parse.
     
     Returns:
-        The integer value if parsing succeeds, otherwise None.
+        The integer value if parsing succeeds, None otherwise.
     """
     try:
         num = int(txt)
@@ -37,14 +49,15 @@ def try_parse_int(txt: str) -> Optional[int]:
     except (TypeError, ValueError):
         return None
 
-# Check if its valid directory
 def is_valid_dir(path: Union[str, Path]) -> None:
-    """
-    Validates that the given path is an existing, real directory.
-    Returns the Path object if valid (so you can chain calls).
-
+    """Validate that a path is an existing, readable directory.
+    
+    Args:
+        path: Path string or Path object to validate.
+    
     Raises:
-        UtilityError - with clear message on any failure
+        UtilityError: If path is empty, does not exist, is not a directory,
+            or is not readable.
     """
     path = str(path)
     p = Path(path)
@@ -69,25 +82,50 @@ def is_valid_dir(path: Union[str, Path]) -> None:
     if not os.access(p, os.R_OK):
         raise UtilityError(f"No read permission for directory '{path}'")
 
-# Get Configuration
 def get_json(path: Union[Path, str]) -> dict:
+    """Load and parse a JSON file.
+    
+    Args:
+        path: Path to the JSON file.
+    
+    Returns:
+        Parsed JSON data as a dictionary.
+    
+    Raises:
+        UtilityError: If the file does not exist, is not a file, cannot be read,
+            or contains invalid JSON.
+    """
     json_path = Path(path)
-    if not json_path.exists():
-        raise UtilityError(f"File('{json_path}') not found")
 
     try:
+        if not json_path.is_file():
+            raise UtilityError(f"File '{json_path}' not found")
+        
         with json_path.open("r") as f:
             config = json.load(f)
     except json.JSONDecodeError:
         raise UtilityError(f"Invalid json code in '{json_path}'")
+    except PermissionError:
+        raise UtilityError(f"No permission to read json '{json_path}'")
     
     return config
 
 # Update json file with func as provided
 def update_json(path: Union[str, Path], update_func: Callable[[dict], None]) -> None:
-    """
-    Atomically update a JSON file using a callback function.
-    Thread-safe and works on Windows.
+    """Atomically update a JSON file using a callback function.
+    
+    Reads the JSON file, passes the parsed data to the callback for modification,
+    writes to a temporary file, then atomically replaces the original. Thread-safe
+    and works on Windows.
+    
+    Args:
+        path: Path to the JSON file to update.
+        update_func: Callback that modifies the JSON data in place.
+    
+    Raises:
+        FileNotFoundError: If the JSON file does not exist.
+        json.JSONDecodeError: If the file contains invalid JSON.
+        Exception: Other I/O errors propagated after temp file cleanup.
     """
     path = Path(path)
     if not path.exists():
@@ -112,20 +150,27 @@ def update_json(path: Union[str, Path], update_func: Callable[[dict], None]) -> 
         # Atomic replace
         temp_path.replace(path)
 
-    except Exception as e:
+    except Exception:
         # Always clean up temp file on error
         if temp_path.exists():
             try:
                 temp_path.unlink()
             except:
                 pass
-        raise e
+        raise
 
 def copy_file(source: Union[str, Path], destination: Union[str, Path]) -> None:
-    """
-    Creates a NEW file at 'destination' with:
-        - Same content as 'source'
-        - Save with current date/time as creation-time
+    """Copy a file from source to destination.
+    
+    Creates the destination directory if needed. If destination is a directory,
+    the source filename is used inside it.
+    
+    Args:
+        source: Path to the source file.
+        destination: Path to destination file or directory.
+    
+    Raises:
+        UtilityError: If source file does not exist.
     """
     src = refine_path(source)
     dst = refine_path(destination)

@@ -37,8 +37,19 @@ def set_logger(file: str) -> None:
     )
 
 # ===== Utils =====
-def __set_level(*txt: str, sep: str, level: str, enable: bool) -> str:
-    msg = sep.join(txt)
+def __set_level(*txt: object, sep: str, level: str, enable: bool) -> str:
+    """Build a message with optional level tag.
+    
+    Args:
+        txt: Message parts to join (converted to strings).
+        sep: Separator for joining message parts.
+        level: Level tag (e.g., 'ERROR', 'INFO').
+        enable: Whether to include the level tag in output.
+    
+    Returns:
+        Formatted message with optional level prefix.
+    """
+    msg = sep.join(str(part) for part in txt)
     return f"[{level}] {msg}" if enable else msg
 
 def __print_level(
@@ -49,7 +60,10 @@ def __print_level(
     is_bright: bool,
     is_bold: bool
 ) -> None:
-    """Private Function to apply limited styles to txt of print_*()"""
+    """Print styled text using color and style options.
+    
+    Private helper for print_* functions.
+    """
     codes = [color]
     if is_bright:
         codes.append(TextStyle.BRIGHT)
@@ -120,8 +134,8 @@ def log_info(*msg, sep=" | ", lvl_tag=True, prefix="", end="") -> None:
     logging.info(f"{message}{end}", extra={'prefix': prefix})
 
 
-# ===== Logging and Printing in one =====
 def __emit_print(txt: str, color: int) -> None:
+    """Print styled text to stdout (helper for emit_* functions)."""
     __print_level(
         txt,
         "\n",
