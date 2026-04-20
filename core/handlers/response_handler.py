@@ -60,7 +60,8 @@ class ResponseHandler:
     ) -> None:
         """Send a redirect to `location`. Optionally include a cookie header.
 
-        Uses minimal headers and disables caching for the redirect.
+        Uses minimal headers and disables caching for the redirect. Security
+        headers are intentionally omitted here so the redirect stays minimal.
         """
 
         headers = [
@@ -131,7 +132,7 @@ class ResponseHandler:
             content_type: MIME type for `Content-Type` header.
             content: Response body bytes/string. Takes precedence over `file_path`.
             file_path: File to stream when `content` is not provided.
-            chunk_size: Transfer chunk size in KB; must be greater than 0.
+            chunk_size: Transfer chunk size in KiB; must be greater than 0.
             extra_headers: Additional headers to append.
             logging: Log completed/canceled transfers when True.
 
@@ -139,7 +140,7 @@ class ResponseHandler:
             ValueError: If `chunk_size <= 0` or neither content nor file data exists.
         """
         if chunk_size <= 0:
-            raise ValueError("chunk_size must be a positive integer")
+            raise ValueError("chunk_size must be a positive value")
 
         # Convert to bytes
         chunk = int(chunk_size * 1024)  
@@ -216,10 +217,12 @@ class ResponseHandler:
                     f"Path: \"{request_path}\"",
                     f"Bytes sent: {bytes_sent}"
                 )
-        except (BrokenPipeError, ConnectionError):
+        except (BrokenPipeError, ConnectionError) as e:
+            handler.close_connection = True
             if logging:
                 logger.emit_info(
                     "File transfer canceled",
+                    f"Reason: {type(e).__name__}",
                     f"IP: {client_ip}",
                     f"Path: \"{request_path}\"",
                     f"Bytes sent: {bytes_sent}"

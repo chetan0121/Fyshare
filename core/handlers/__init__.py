@@ -4,8 +4,8 @@ HTTP request handlers for FyShare server.
 Modules:
     - file_handler: Main HTTP request handler with GET/POST support
     - html_handler: HTML generation for directory listings and login pages
-    - response_handler: Centralized response management with security headers
-    - security_mixin: Authentication and path security validation
+    - response_handler: Centralized response helpers for headers, redirects, and body streaming
+    - security_mixin: Authentication and path safety helpers
 """
 
 from .file_handler import FileHandler

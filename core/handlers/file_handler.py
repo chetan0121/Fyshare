@@ -28,11 +28,12 @@ class FileHandler(SecurityMixin):
         super().__init__(*args, directory=str(FileState.ROOT_DIR), **kwargs)
 
     def do_GET(self) -> None:
-        """Handle GET requests for login, static assets, files, and directories.
+        """Handle GET requests for login pages, static assets, files, and directories.
 
         Flow overview:
         - Reject blocked clients.
         - Serve special public endpoints (`/favicon.ico`, `/logout`, `/static/*`).
+        - Serve the login page for unauthenticated requests.
         - Require authentication for protected routes.
         - Serve `.html` files directly when requested.
         - For all remaining paths, resolve and serve file-or-directory content.
@@ -102,7 +103,7 @@ class FileHandler(SecurityMixin):
 
         if self.path.endswith('.html'):
             file_path = self.translate_path(self.path)
-            if file_path.exists() and file_path.is_file():
+            if file_path.is_file():
                 try:
                     ResponseHandler.send_http_response(
                         self, file_path=file_path
@@ -238,7 +239,8 @@ class FileHandler(SecurityMixin):
         Args:
             path: Absolute directory path under the server root.
 
-        Sends an HTTP error response if the directory cannot be enumerated.
+        Sends an HTTP error response if the directory cannot be enumerated or if
+        HTML generation or response writing fails.
         """
         try:
             with os.scandir(str(path)) as entries:
@@ -290,7 +292,7 @@ class FileHandler(SecurityMixin):
                 
             return
             
-        if not path.exists() or not path.is_file():
+        if not path.is_file():
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         
@@ -301,4 +303,4 @@ class FileHandler(SecurityMixin):
                 logging=True
             )
         except Exception as e:
-            logger.emit_error(f"Sending head: {str(e)}")   
+            logger.emit_error(f"Sending files: {str(e)}")   

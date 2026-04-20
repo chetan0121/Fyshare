@@ -49,6 +49,10 @@ class SecurityMixin(ReqHandler):
         
         Returns:
             True if session exists and is not expired, False otherwise.
+
+        Notes:
+            Expired sessions are removed from the session store before False is
+            returned.
         """
         session_token = self.get_session_token()
         if not session_token:

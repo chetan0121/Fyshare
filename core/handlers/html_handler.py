@@ -55,6 +55,10 @@ class HTMLHandler():
             
         Returns:
             Complete HTML page with file listing.
+
+        Notes:
+            Hidden entries are skipped, and symlinks are omitted if they are
+            invalid or resolve outside the configured root directory.
         """
         template = FileState.FYSHARE_HTML
         breadcrumbs = HTMLHandler.generate_breadcrumbs(displaypath)
@@ -191,7 +195,7 @@ class HTMLHandler():
 
     @staticmethod
     def get_login_html(msg: Optional[str] = None):
-        """Return cached login template with message placeholder filled."""
+        """Return the cached login template with the message placeholder filled."""
         html = FileState.LOGIN_HTML
         html = html.replace('{{message}}', msg or '')
         return html
